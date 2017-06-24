@@ -33,5 +33,5 @@ void main()
         
     vec3 result = (ambient + diffuse + specular) * objectColor;
 	color = texture(ourTexture, texCoord) * vec4(result,1.0f);
-    //color = vec4(result, 1.0f);
+   // color = vec4(result, 1.0f);
 } 

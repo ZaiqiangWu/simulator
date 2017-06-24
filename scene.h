@@ -6,16 +6,29 @@
 #include <GL/freeglut.h>
 #include "load_obj.h"
 
-//singleton pattern 
+//singleton
+
+struct VAO_Buffer
+{
+	GLuint vao;
+	GLuint array_buffer;
+	GLuint index_buffer;
+	GLuint texture;
+	GLuint index_size;
+};
+
 class Scene
 {
 public:
 	static Scene* getInstance(int argc, char** argv);
 	~Scene(); //closeFunc() 
-	void add(Obj& object);//add objects,bind VAOs and draw it
-	//void add(Simulation& simulation);
-	void RenderBuffer(Obj& object);
+	void add(Obj& object);   //add objects,bind VAOs 
 	void render();
+
+	//void add(Simulation& simulation);
+	void RenderBuffer(VAO_Buffer vao_buffer);
+	vector<VAO_Buffer> obj_vaos;
+	
 
 private:
 	Scene(int argc, char** argv);  //initial
@@ -24,8 +37,7 @@ private:
 	
 
 private:
-	static Scene* pscene;   //pscene points to the Scene(singleton)
-	vector<Obj*> objs;
+	static Scene* pscene;       //pscene points to the Scene(singleton)
 	//Simulation* p_simulation;
 	GLSLShader renderShader;
 	enum attributes { position, texture, normal };

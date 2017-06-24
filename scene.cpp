@@ -61,7 +61,7 @@ void Scene::render()
 	glutMainLoop();
 }
 
-void Scene::RenderBuffer(Obj& object)
+void Scene::RenderBuffer(VAO_Buffer vao_buffer)
 {
 	GLfloat eyeDir[3] = { viewDir.x,viewDir.y,viewDir.z };
 
@@ -70,66 +70,52 @@ void Scene::RenderBuffer(Obj& object)
 	glUniformMatrix4fv(renderShader("projection"), 1, GL_FALSE, projection);
 	glUniform3fv(renderShader("viewPos"), 1, eyeDir);
 
-	glBindVertexArray(object.objVAO.vao);
-	
-	GLint* ptr = (GLint*)glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY);
-	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER); // unmap it after use
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, object.objVAO.index_buffer);
-	for (int i = 0; i < object.groups.size(); i++)
-	{
-		unsigned int group_size = object.groups[i].Last_Tri - object.groups[i].First_Tri + 1;
-		GLuint start = object.groups[i].First_Tri;
-		glBindTexture(GL_TEXTURE_2D, object.groups[i].Group_Material.clothTexture);
-		glDrawElements(GL_TRIANGLES, (GLsizei)group_size, GL_UNSIGNED_INT, (void*)&ptr[start]);
+	glBindVertexArray(vao_buffer.vao);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vao_buffer.index_buffer);
+		glBindTexture(GL_TEXTURE_2D, vao_buffer.texture);
+		glDrawElements(GL_TRIANGLES, (GLsizei)vao_buffer.index_size, GL_UNSIGNED_INT, 0);
 		glBindTexture(GL_TEXTURE_2D, 0);
-	}
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);	
-
 	renderShader.UnUse();
 }
 void Scene::add(Obj& object)
 {
-	objs.push_back(&object);
 	//add VAOs and Buffers
-	GLuint vao;
-	GLuint array_buffer;
-	GLuint index_buffer;
+	VAO_Buffer tem_vao;
 	
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1,&array_buffer);
-	glGenBuffers(1,&index_buffer);
+	glGenVertexArrays(1, &tem_vao.vao);
+	glGenBuffers(1,&tem_vao.array_buffer);
+	glGenBuffers(1,&tem_vao.index_buffer);
+	tem_vao.texture = object.g_textureID;
+	tem_vao.index_size = object.vertex_index.size();
 	check_GL_error();
-
-	object.objVAO.vao = vao;
-	object.objVAO.array_buffer = array_buffer;
-	object.objVAO.index_buffer = index_buffer;  
 	
-	glBindVertexArray(object.objVAO.vao);
-	glBindBuffer(GL_ARRAY_BUFFER, object.objVAO.array_buffer);
+	glBindVertexArray(tem_vao.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, tem_vao.array_buffer);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices4.size() + sizeof(glm::vec2)*object.uvs.size() + sizeof(glm::vec3)*object.normals.size(), NULL, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4)*object.vertices4.size(), &object.vertices4[0]);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices4.size(), sizeof(glm::vec2)*object.uvs.size(), &object.uvs[0]);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices4.size() + sizeof(glm::vec2)*object.uvs.size(), sizeof(glm::vec3)*object.normals.size(), &object.normals[0]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.uni_vertices.size() + sizeof(glm::vec2)*object.uni_tex.size() + sizeof(glm::vec3)*object.uni_normals.size(), NULL, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4)*object.uni_vertices.size(), &object.uni_vertices[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.uni_vertices.size(), sizeof(glm::vec2)*object.uni_tex.size(), &object.uni_tex[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.uni_vertices.size() + sizeof(glm::vec2)*object.uni_tex.size(), sizeof(glm::vec3)*object.uni_normals.size(), &object.uni_normals[0]);
 	check_GL_error();
 
 	glVertexAttribPointer(position, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), 0);
-	glVertexAttribPointer(texture, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (const GLvoid*)(sizeof(glm::vec4)*object.vertices4.size()));
-	glVertexAttribPointer(normal, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (const GLvoid*)(sizeof(glm::vec4)*object.vertices4.size() + sizeof(glm::vec2)*object.uvs.size()));
+	glVertexAttribPointer(texture, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (const GLvoid*)(sizeof(glm::vec4)*object.uni_vertices.size()));
+	glVertexAttribPointer(normal, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (const GLvoid*)(sizeof(glm::vec4)*object.uni_vertices.size() + sizeof(glm::vec2)*object.uni_tex.size()));
 
 	glEnableVertexAttribArray(position);
 	glEnableVertexAttribArray(texture);
 	glEnableVertexAttribArray(normal);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,index_buffer);  
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*object.vertexIndices.size(), &object.vertexIndices[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,tem_vao.index_buffer);  
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*object.vertex_index.size(), &object.vertex_index[0], GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	glBindVertexArray(0);
 
+	obj_vaos.push_back(tem_vao); // add new vao to the scene
 }
 //void Scene::add(Simulation& simulation)
 //{
@@ -210,8 +196,8 @@ void Scene::RenderGPU_CUDA()
 	//	cudaStatus = cudaGraphicsUnmapResources(1, &p_simulate->cuda_vbo_resource, 0);
 	//	p_simulate->swap_buffer();
 	//}
-	for (auto object : pscene->objs)
-		pscene->RenderBuffer(*object);
+	for (auto vao:pscene->obj_vaos)
+		pscene->RenderBuffer(vao);
 
 }
 void Scene::onRender()

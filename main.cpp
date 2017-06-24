@@ -11,17 +11,16 @@ using namespace std;
 
 int _tmain(int argc, char** argv)
 {
+	Scene* main_scene = Scene::getInstance(argc, argv); //initialize opengl 
+
 	Obj cloth("./cloth/cloth.obj");  
-	Scene* mainScene = Scene::getInstance(argc, argv); //create an OpenGL render scene 
-	/*//test
-	cout << cloth.vertices.size() << endl;
-	cout << cloth.faces.size() << endl;
-
-	for(auto val:cloth.vertex_object)
-		cout << val.first << " " << val.second << endl; 
-
-	for(auto val:cloth.face_group)
-		cout << val.first << " " << val.second << endl;*/
+	cloth.pretreat(0.31, 0, 1.95, 0.02);
+	Obj body("./pose/pose0.obj");
+	body.pretreat(0.30, 0, 1.0, 0);
+	
+	main_scene->add(cloth);
+	main_scene->add(body);
+	main_scene->render();
 
 	return 0;
 }
