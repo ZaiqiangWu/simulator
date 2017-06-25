@@ -13,7 +13,6 @@ struct Face
 	unsigned int vertex_index[3];
 	unsigned int tex_index[3];
 	unsigned int normal_index[3];
-	
 };
 
 
@@ -34,7 +33,7 @@ public:
 	GLuint g_textureID;
                       //add spring for CLOTH
 
-private:
+
 	string obj_file;                  //load from *.obj
 	string mtl_file;
 	string texture_file;
