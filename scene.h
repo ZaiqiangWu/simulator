@@ -1,31 +1,25 @@
 #pragma once
-
+#define GLEW_STATIC
+#include "vao_buffer.h"
+#include "GLSLShader.h"
+#include "load_obj.h"
+#include "cuda_simulation.h"
+#include <GL/freeglut.h>
 #include <vector>
 #include <glm/glm.hpp>
-#include "GLSLShader.h"
-#include <GL/freeglut.h>
-#include "load_obj.h"
+
+#pragma comment(lib, "glew32s.lib")
 
 //singleton
-
-struct VAO_Buffer
-{
-	GLuint vao;
-	GLuint array_buffer;
-	GLuint index_buffer;
-	GLuint texture;
-	GLuint index_size;
-};
-
 class Scene
 {
 public:
 	static Scene* getInstance(int argc, char** argv);
 	~Scene(); //closeFunc() 
 	void add(Obj& object);   //add objects,bind VAOs 
+	void add(CUDA_Simulation& sim);
 	void render();
 
-	//void add(Simulation& simulation);
 	void RenderBuffer(VAO_Buffer vao_buffer);
 	vector<VAO_Buffer> obj_vaos;
 	
@@ -38,7 +32,7 @@ private:
 
 private:
 	static Scene* pscene;       //pscene points to the Scene(singleton)
-	//Simulation* p_simulation;
+	CUDA_Simulation* simulation;
 	GLSLShader renderShader;
 	enum attributes { position, texture, normal };
 

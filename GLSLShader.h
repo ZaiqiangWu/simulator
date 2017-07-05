@@ -1,6 +1,7 @@
 //A simple class for handling GLSL shader compilation
 //Auhtor: Movania Muhammad Mobeen
 #pragma once
+#define GLEW_STATIC
 #include <GL/glew.h>
 #include <map>
 #include <string>

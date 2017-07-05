@@ -1,4 +1,5 @@
 #pragma once
+#include "vao_buffer.h"
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <vector>
@@ -31,7 +32,8 @@ public:
 	vector<glm::vec3> uni_normals;
 	vector<unsigned int> vertex_index;           // unified the index for render
 	GLuint g_textureID;
-                      //add spring for CLOTH
+	VAO_Buffer vbo;
+                
 
 
 	string obj_file;                  //load from *.obj

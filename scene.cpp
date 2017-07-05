@@ -2,7 +2,7 @@
 #include "scene.h"
 #include "help.h"
 #include <GL/freeglut.h>
-#include <GL/wglew.h>
+#include "wglew.h"
 #include <iostream>
 using namespace std;
 
@@ -43,7 +43,6 @@ Scene::Scene(int argc, char** argv)
 		return;
 	}
 	wglSwapIntervalEXT(0);  // disable Vertical synchronization
-
 }
 void Scene::render()
 {
@@ -116,11 +115,12 @@ void Scene::add(Obj& object)
 	glBindVertexArray(0);
 
 	obj_vaos.push_back(tem_vao); // add new vao to the scene
+	object.vbo = tem_vao;       
 }
-//void Scene::add(Simulation& simulation)
-//{
-//	p_simulation = &simulation;
-//}
+void Scene::add(CUDA_Simulation& sim)
+{
+	simulation = &sim;
+}
 void Scene::check_GL_error()
 {
 	assert(glGetError() == GL_NO_ERROR);
@@ -175,27 +175,10 @@ void Scene::DrawGrid()
 }
 void Scene::RenderGPU_CUDA()
 {
-	//set simulation parameters
-	//const float DEFAULT_DAMPING = -0.0125f;
-	//float mass = 0.3f;
-	//float timeStep = 1.0f / 50.0f;
-	//bool finished;
-
-	//Simulation* p_simulate = pscene->p_simulation;
-	//if (p_simulate)
-	//{
-	//	获取cloth vertices的指针
-	//	
-	//	glm::vec4* pos; 
-	//	size_t num_bytes;
-
-	//	cudaError_t cudaStatus = cudaGraphicsMapResources(1, &p_simulate->cuda_vbo_resource, 0);
-	//	cudaStatus = cudaGraphicsResourceGetMappedPointer((void **)&pos, &num_bytes, p_simulate->cuda_vbo_resource);
-	//	p_simulate->VerletCUDA(pos,p_simulate->cloth_vertex_size, p_simulate->cloth_index_size,DEFAULT_DAMPING, mass, timeStep, p_simulate->normalStride,
-	//		finished, p_simulate->gpu_nodes, p_simulate->gpu_indexes, p_simulate->gpu_points);
-	//	cudaStatus = cudaGraphicsUnmapResources(1, &p_simulate->cuda_vbo_resource, 0);
-	//	p_simulate->swap_buffer();
-	//}
+	if (pscene->simulation)
+	{
+		pscene->pscene->simulation->simulate();
+	}
 	for (auto vao:pscene->obj_vaos)
 		pscene->RenderBuffer(vao);
 
