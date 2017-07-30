@@ -1,4 +1,4 @@
-#include "stdafx.h"
+
 #include "load_obj.h"
 #include <iostream>
 #include <fstream>
@@ -16,7 +16,7 @@ Obj::Obj(const string file):obj_file(file)
 	ifstream input(file);
 	if(!input)
 	{
-		cerr<<"error: unable to open input file: "<<input<<endl;
+		cout <<"error: unable to open input file: " << endl;
 		exit(-1);
 	}
 
@@ -152,7 +152,7 @@ Obj::Obj(const string file):obj_file(file)
 		ifstream input(mtl_file);
 		if(!input)
 		{
-			cerr<<"error: unable to open input file: "<<input<<endl;
+			cerr<<"error: unable to open input file: "<<endl;
 			exit(-1);
 		}
 		

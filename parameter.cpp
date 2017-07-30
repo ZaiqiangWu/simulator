@@ -1,4 +1,4 @@
-#include "stdafx.h"
+
 #include "parameter.h"
 
 Parameter sim_parameter(    //若要修改参数，同时需要修改GPU端参数（verlet.cu）,暂时未同步

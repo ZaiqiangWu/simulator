@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "spring.h"
 #include "kdtree.h"
 #include <string>

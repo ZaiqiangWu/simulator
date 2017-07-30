@@ -1,4 +1,4 @@
-#include "stdafx.h"
+
 #include <GL/freeglut.h>
 #include "help.h"
 #include <time.h>

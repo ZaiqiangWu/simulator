@@ -1,7 +1,6 @@
 // simulation_bvh.cpp : 定义控制台应用程序的入口点。
 //
 
-#include "stdafx.h"
 #include "load_obj.h"
 #include "scene.h"
 #include "spring.h"
@@ -11,7 +10,7 @@
 using namespace std;
 
 
-int _tmain(int argc, char** argv)
+int main(int argc, char** argv)
 {
 	Scene* main_scene = Scene::getInstance(argc, argv); //initialize opengl 
 
@@ -26,11 +25,11 @@ int _tmain(int argc, char** argv)
 	//	cout << v.first << " "<< v.second << endl;
 	//exit(-1);
 
-	//Obj body("./pose/pose0.obj");
-	//body.pretreat(0.30, 0, 1.0, 0);
+	Obj body("./pose/pose0.obj");
+	body.pretreat(0.30, 0, 1.0, 0);
 	
 	main_scene->add(cloth);
-	//main_scene->add(body);
+	main_scene->add(body);
 
 	CUDA_Simulation simulation(cloth);   //add(obj)会初始化gpu端数据，simulation需要用到这些数据
 	main_scene->add(simulation);

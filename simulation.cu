@@ -1,4 +1,4 @@
-#include "stdafx.h"
+
 #include "cuda_simulation.h"
 #include "spring.h"
 #include "load_obj.h"

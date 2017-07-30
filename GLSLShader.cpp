@@ -1,7 +1,6 @@
 //A simple class for handling GLSL shader compilation
 //Author: Movania Muhammad Mobeen
 //Last Modified: February 2, 2011
-#include "stdafx.h"
 #include "GLSLShader.h"
 #include <iostream>
 
