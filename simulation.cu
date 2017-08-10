@@ -11,7 +11,8 @@ __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, 
 __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_pos_old_in, glm::vec4 * g_pos_out, glm::vec4 * g_pos_old_out,glm::vec4* const_pos,
 					  unsigned int* neigh1, unsigned int* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
-					  const unsigned int NUM_VERTICES);  //verlet intergration
+					  const unsigned int NUM_VERTICES,
+					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives);  //verlet intergration
 
 CUDA_Simulation::CUDA_Simulation()
 {
@@ -148,7 +149,8 @@ void CUDA_Simulation::verlet_cuda()
 	verlet <<< numBlocks, numThreads >>>(cuda_p_vertex, X_in, X_last_in, X_out, X_last_out,const_cuda_pos,
 										cuda_neigh1,cuda_neigh2,
 										cuda_p_normal,cuda_vertex_adjface,cuda_face_normal,
-										numParticles);
+										numParticles,
+										d_leaf_nodes,d_internal_nodes,d_primitives);
 
 	// stop the CPU until the kernel has been executed
 	cudaStatus = cudaDeviceSynchronize();
@@ -177,4 +179,11 @@ void CUDA_Simulation::swap_buffer()
 	X_last_in = X_last[readID];
 	X_last_out = X_last[writeID];
 
+}
+
+void CUDA_Simulation::add_bvh(BVHAccel& bvh)
+{
+	d_leaf_nodes = bvh.d_leaf_nodes;
+	d_internal_nodes = bvh.d_internal_nodes;
+	d_primitives = bvh.d_primitives;
 }

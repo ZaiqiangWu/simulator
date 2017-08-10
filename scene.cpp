@@ -4,6 +4,7 @@
 #include <GL/freeglut.h>
 #include "wglew.h"
 #include <iostream>
+#include <FreeImage.h>
 using namespace std;
 
 
@@ -21,7 +22,10 @@ glm::vec3 Scene::Up = glm::vec3(0, 1, 0),
 		  Scene::Right = glm::vec3(0, 0, 0), 
 		  Scene::viewDir= glm::vec3(0, 0, 0);
 int Scene::selected_index = -1;
+static int current_width;
+static int current_height ;
 
+static int num_screenshot = 0;
 
 Scene* Scene::getInstance(int argc, char** argv)
 {
@@ -121,6 +125,10 @@ void Scene::add(CUDA_Simulation& sim)
 {
 	simulation = &sim;
 }
+void Scene::add(BVHAccel& bvh)
+{
+	h_bvh = &bvh;
+}
 void Scene::check_GL_error()
 {
 	assert(glGetError() == GL_NO_ERROR);
@@ -154,7 +162,26 @@ Scene::~Scene()
 
 }
 
+void Scene::screenshot()
+{
 
+	// Make the BYTE array, factor of 3 because it's RBG.
+	BYTE* pixels = new BYTE[3 * current_width * current_height];
+
+	glReadPixels(0, 0, current_width, current_height, GL_BGR, GL_UNSIGNED_BYTE, pixels);
+
+	// Convert to FreeImage format & save to file
+	FIBITMAP* image = FreeImage_ConvertFromRawBits(pixels, current_width, current_height, 3 * current_width, 24, 0x0000FF, 0xFF0000, 0x00FF00, false);
+	string str = "./screenshot/screenshot";
+	str += to_string(num_screenshot++);
+	str += ".bmp";
+
+	FreeImage_Save(FIF_BMP, image, str.c_str(), 0);
+
+	// Free resources
+	FreeImage_Unload(image);
+	delete[] pixels;
+}
 // OPENGL场景的各种函数
 void Scene::DrawGrid()
 {
@@ -179,6 +206,9 @@ void Scene::RenderGPU_CUDA()
 	{
 		pscene->pscene->simulation->simulate();
 	}
+	
+		
+
 	for (auto vao:pscene->obj_vaos)
 		pscene->RenderBuffer(vao);
 
@@ -201,13 +231,19 @@ void Scene::onRender()
 	viewDir.z = (float)-modelview[10];
 	Right = glm::cross(viewDir, Up);
 
-	DrawGrid();
+	//DrawGrid();
+	if (pscene->h_bvh)
+	{
+		pscene->h_bvh->draw(pscene->h_bvh->get_root());
+	}
 	RenderGPU_CUDA();
 
 	glutSwapBuffers();
 }
 void Scene::OnReshape(int nw, int nh)
 {
+	current_width = nw;
+	current_height = nh;
 	glViewport(0, 0, nw, nh);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -304,10 +340,12 @@ void Scene::OnKey(unsigned char key, int, int)
 {
 	switch (key)
 	{
-	case 'w':dy -= 0.1; break;
+	case 'w':
 	case 'W':dy -= 0.1; break;
-	case 'S':dy += 0.1; break;
+	case 'S':
 	case 's':dy += 0.1; break;
+	case 'c':
+	case 'C':screenshot(); break;
 	default:
 		break;
 	}

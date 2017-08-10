@@ -296,11 +296,11 @@ void Springs::get_boundary_boundary_spring()
 	//	start += spring_obj->vertex_object[n].second;
 	//}
 	//unsigned int *idx = new unsigned int[spring_obj->uni_vertices.size()]; 
-	//kdtree *kd = kd_create(3);
+	//kdtree *kd = k create(3);
 	//for (int i=start_end[8].first;i<start_end[8].second;i++)   //为面片1建立kdtree
 	//	{
 	//		idx[i] = i;
-	//		int ret = kd_insert3f(kd, spring_obj->uni_vertices[i].x,
+	//		int ret = k insert3f(kd, spring_obj->uni_vertices[i].x,
 	//			spring_obj->uni_vertices[i].y,
 	//			spring_obj->uni_vertices[i].z,
 	//			&idx[i]);
@@ -309,10 +309,10 @@ void Springs::get_boundary_boundary_spring()
 	//for(int i=start_end[1].first;i<start_end[1].second;i++)
 	//{
 	//	float kdpos[3];
-	//		kdres *result = kd_nearest3f(kd, spring_obj->uni_vertices[i].x,
+	//		kdres *result = k nearest3f(kd, spring_obj->uni_vertices[i].x,
 	//			spring_obj->uni_vertices[i].y,
 	//			spring_obj->uni_vertices[i].z);
-	//		int *resultidx = (int*)kd_res_itemf(result, kdpos);
+	//		int *resultidx = (int*)k res_itemf(result, kdpos);
 
 	//		if (glm::distance(spring_obj->uni_vertices[i],spring_obj->uni_vertices[*resultidx]) < max_dist*20) //加入距离判断，防止错连
 	//		{

@@ -25,6 +25,8 @@ public:
 	Obj(const string file);
 	~Obj();
 	void pretreat(float S, float x_up, float y_up, float z_up);
+	
+
 
 public:
 	vector<glm::vec4> uni_vertices;             //unifieed data

@@ -1,9 +1,12 @@
+
+#include "parameter.h"
+#include "./bvh/bvh.h"
 #include <cuda.h>
 #include <device_functions.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <glm/glm.hpp>
-#include "parameter.h"
+
 
 //physics parameter,若要修改参数，还需同时修改parameter.cpp
 __device__ float spring_structure = 30;
@@ -16,6 +19,148 @@ __device__ unsigned int NUM_NEIGH1 = 20;
 __device__ unsigned int NUM_NEIGH2 = 20;
 
 
+__device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx);
+__device__ BRTreeNode*  get_root(BRTreeNode* leaf_nodes, BRTreeNode* internal_nodes);
+__device__ BRTreeNode*  get_left_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node);
+__device__ BRTreeNode*  get_right_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node);
+__device__ bool  is_leaf(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node);
+__device__ bool  check_overlap(const glm::vec3 point, BRTreeNode* node);
+
+
+
+__device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx)
+{
+	// Allocate traversal stack from thread-local memory,
+	// and push NULL to indicate that there are no postponed nodes.
+	BRTreeNode* stack[64];
+	BRTreeNode** stackPtr = stack;
+	*stackPtr++ = NULL; // push
+
+						// Traverse nodes starting from the root.
+	BRTreeNode* node = get_root(leaf_nodes, internal_nodes);
+	do
+	{
+		// Check each child node for overlap.
+		BRTreeNode* childA = get_left_child(leaf_nodes, internal_nodes, node);
+		BRTreeNode* childB = get_right_child(leaf_nodes, internal_nodes, node);
+		bool overlapL = check_overlap(point, childA);
+		bool overlapR = check_overlap(point, childB);
+
+		// Query overlaps a leaf node => report collision with the first collision.
+		if (overlapL && is_leaf(leaf_nodes, internal_nodes, childA))
+		{
+			idx = childA->getIdx();
+			//idx = -(idx + 1);   //is a leaf, and we can get it through primitive[idx]
+			return true;
+		}
+
+		if (overlapR && is_leaf(leaf_nodes, internal_nodes, childB))
+		{
+			idx = childB->getIdx();
+			//idx = -(idx + 1);   //is a leaf
+			return true;
+		}
+
+		// Query overlaps an internal node => traverse.
+		bool traverseL = (overlapL && !is_leaf(leaf_nodes, internal_nodes, childA));
+		bool traverseR = (overlapR && !is_leaf(leaf_nodes, internal_nodes, childB));
+
+		if (!traverseL && !traverseR)
+			node = *--stackPtr; // pop
+		else
+		{
+			node = (traverseL) ? childA : childB;
+			if (traverseL && traverseR)
+				*stackPtr++ = childB; // push
+		}
+	} while (node != NULL);
+
+	return false;
+}
+__device__ BRTreeNode*  get_root(BRTreeNode* leaf_nodes, BRTreeNode* internal_nodes)
+{
+	return &internal_nodes[0];
+}
+__device__ BRTreeNode*  get_left_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
+{
+	bool is_leaf = false;
+	bool is_null = false;
+	int  child_idx = false;
+	child_idx = node->getChildA(is_leaf, is_null);
+	if (!is_null)
+	{
+		if (is_leaf)
+		{
+			return &leaf_nodes[child_idx];
+		}
+		else
+		{
+			return &internal_nodes[child_idx];
+		}
+	}
+	else
+		return nullptr;
+}
+__device__ BRTreeNode*  get_right_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
+{
+	bool is_leaf = false;
+	bool is_null = false;
+	int  child_idx = false;
+	child_idx = node->getChildB(is_leaf, is_null);
+	if (!is_null)
+	{
+		if (is_leaf)
+		{
+			return &leaf_nodes[child_idx];
+		}
+		else
+		{
+			return &internal_nodes[child_idx];
+		}
+	}
+	else
+		return nullptr;
+}
+__device__ bool  is_leaf(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
+{
+	bool is_leaf = false;
+	bool is_null_a = false;
+	bool is_null_b = false;
+    node->getChildA(is_leaf, is_null_a);
+	node->getChildB(is_leaf, is_null_b);
+
+	if (is_null_a && is_null_b)
+		return true;
+	return false;
+}
+__device__ bool  check_overlap(const glm::vec3 point, BRTreeNode* node)
+{
+	return node->bbox.intersect(point);
+}
+__device__ void collision_response(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,
+	glm::vec3& force, glm::vec3& pos, glm::vec3& pos_old)
+{
+	int idx_pri;
+	bool inter = intersect(leaf_nodes, internal_nodes, pos, idx_pri);  //collision detection
+	if (inter)
+	{
+		float dist;
+		glm::vec3 normal;
+		if (primitives[idx_pri].d_intersect(pos, dist, normal))
+		{
+			dist = 8.0*glm::abs(dist);    //原为5.5
+			glm::vec3 temp = dist*normal;
+
+			force = force + temp;
+
+			float ratio = 3.0 / 3.0;
+			glm::vec3 temppos = pos*ratio;
+			glm::vec3 temppos_old = pos_old*(1 - ratio);
+			pos_old = temppos + temppos_old;
+		}
+
+	}
+}
 
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face)
 {
@@ -81,10 +226,14 @@ __device__ glm::vec3 get_spring_force(int index, glm::vec4* g_pos_in, glm::vec4*
 	return force;
 
 }
+
+
+
 __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos_old_in, glm::vec4* g_pos_out, glm::vec4* g_pos_old_out, glm::vec4* const_pos,
 					  unsigned int* neigh1, unsigned int* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
-					  const unsigned int NUM_VERTICES)
+					  const unsigned int NUM_VERTICES,
+					BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= NUM_VERTICES)
@@ -103,10 +252,14 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh1, NUM_NEIGH1, pos, vel); //计算一级邻域弹簧力
 	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh2, NUM_NEIGH2, pos, vel); //计算二级邻域弹簧力
 	
+	//verlet integration
+	collision_response(leaf_nodes, internal_nodes, primitives, force, pos, pos_old);  //******************?
 	glm::vec3 acc = force / mass;
 	glm::vec3 tmp = pos;
 	pos = pos + pos - pos_old + acc * dt * dt;
 	pos_old = tmp;
+
+	
 
 	//compute point normal
 	glm::vec3 normal(0.0);

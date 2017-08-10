@@ -42,7 +42,7 @@ private:
 	Obj* spring_obj;
 
 private:
-	//void add_spring(float stiffness,vector<glm::vec4>& vertices,unsigned int p1,unsigned int p2);
+	//void ad spring(float stiffness,vector<glm::vec4>& vertices,unsigned int p1,unsigned int p2);
 	bool exist(const vector<unsigned int>& array, const unsigned int val);
 	bool cuda_neigh();
 	void get_cloth_boundary_spring();

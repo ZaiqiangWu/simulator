@@ -4,6 +4,7 @@
 #include "GLSLShader.h"
 #include "load_obj.h"
 #include "cuda_simulation.h"
+#include "./bvh//bvh.h"
 #include <GL/freeglut.h>
 #include <vector>
 #include <glm/glm.hpp>
@@ -18,6 +19,7 @@ public:
 	~Scene(); //closeFunc() 
 	void add(Obj& object);   //add objects,bind VAOs 
 	void add(CUDA_Simulation& sim);
+	void add(BVHAccel& bvh);
 	void render();
 
 	void RenderBuffer(VAO_Buffer vao_buffer);
@@ -33,10 +35,14 @@ private:
 private:
 	static Scene* pscene;       //pscene points to the Scene(singleton)
 	CUDA_Simulation* simulation;
+	BVHAccel* h_bvh;
 	GLSLShader renderShader;
 	enum attributes { position, texture, normal };
+	
+	
 
 private:
+	static void screenshot();
 	static void DrawGrid();                  // OPENGL场景的各种函数
 	static void RenderGPU_CUDA();
 	static void onRender();

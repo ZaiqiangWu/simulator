@@ -1,6 +1,7 @@
 #pragma once
 #include "load_obj.h"
 #include "parameter.h"
+#include "./bvh/bvh.h"
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 
@@ -12,6 +13,7 @@ public:
 	~CUDA_Simulation();
 	CUDA_Simulation(Obj& cloth);
 	void simulate();
+	void add_bvh(BVHAccel& bvh);
 
 private:
 	void get_vertex_adjface();
@@ -39,6 +41,10 @@ public:
 
 	unsigned int* cuda_neigh1;  //二维数组转为一维数组
 	unsigned int* cuda_neigh2;
+
+	BRTreeNode*  d_leaf_nodes;   //for bvh tree
+	BRTreeNode*  d_internal_nodes;
+	Primitive* d_primitives;
 
 private:
 	Obj* sim_cloth;
