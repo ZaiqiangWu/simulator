@@ -1,5 +1,6 @@
 #include "bvh.h"
 #include "primitive.h"
+#include "../watch.h"
 #include <iostream>
 #include <algorithm>
 #include <bitset>
@@ -117,9 +118,12 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 
 	// delegate the binary radix tree construction process to GPU
 	cout << "start building parallel brtree" << endl;
+	stop_watch watch;
+	watch.start();
 	ParallelBRTreeBuilder builder(&sorted_morton_codes[0], &bboxes[0], primitives.size());
 	builder.build();
-	cout << "done." << endl;
+	watch.stop();
+	cout << "done with time elapsed: " << watch.elapsed() << "us" << endl;
 
 	numInternalNode = builder.numInternalNode;
 	numLeafNode = builder.numLeafNode;

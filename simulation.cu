@@ -12,7 +12,7 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_p
 					  unsigned int* neigh1, unsigned int* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
 					  const unsigned int NUM_VERTICES,
-					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives);  //verlet intergration
+					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* collision_force);  //verlet intergration
 
 CUDA_Simulation::CUDA_Simulation()
 {
@@ -69,6 +69,9 @@ void CUDA_Simulation::init_cuda()
 	cudaStatus = cudaMalloc((void**)&X[1], vertices_bytes);			 // cloth vertices
 	cudaStatus = cudaMalloc((void**)&X_last[0], vertices_bytes);	 // cloth old vertices
 	cudaStatus = cudaMalloc((void**)&X_last[1], vertices_bytes);	 // cloth old vertices
+	cudaStatus = cudaMalloc((void**)&collision_force, sizeof(glm::vec3) * sim_cloth->uni_vertices.size());  //collision response force
+	cudaMemset(collision_force, 0, sizeof(glm::vec3) * sim_cloth->uni_vertices.size());    //initilize to 0
+
 	X_in = X[readID];
 	X_out = X[writeID];
 	X_last_in = X_last[readID];
@@ -150,7 +153,7 @@ void CUDA_Simulation::verlet_cuda()
 										cuda_neigh1,cuda_neigh2,
 										cuda_p_normal,cuda_vertex_adjface,cuda_face_normal,
 										numParticles,
-										d_leaf_nodes,d_internal_nodes,d_primitives);
+										d_leaf_nodes,d_internal_nodes,d_primitives, collision_force);
 
 	// stop the CPU until the kernel has been executed
 	cudaStatus = cudaDeviceSynchronize();

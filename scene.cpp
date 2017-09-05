@@ -216,7 +216,6 @@ void Scene::RenderGPU_CUDA()
 void Scene::onRender()
 {
 	getFPS();
-
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
 	glTranslatef(0, dy, 0);

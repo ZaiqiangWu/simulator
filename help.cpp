@@ -3,6 +3,7 @@
 #include "help.h"
 #include <time.h>
 #include <string>
+#include <iostream>
 using namespace std;
  
 float startTime = 0;
@@ -25,6 +26,7 @@ void getFPS()
 		totalFrames = 0;
 
 		sprintf_s(info, "GLUT Cloth Demo FPS: %4.3f", fps);
+		//cout << fps << endl;
 	}
 	glutSetWindowTitle(info);
 }

@@ -31,6 +31,7 @@ public:
 	glm::vec4 * X_in, *X_out;
 	glm::vec4 * X_last_in, *X_last_out;
 
+	glm::vec3* collision_force;           //碰撞的人体三角形的法向量，如果没有碰撞则为0
 	unsigned int* cuda_vertex_index;    //点的索引
 	unsigned int* cuda_vertex_adjface;       //计算每个点法向量时需要其周围平面的索引
 	glm::vec3* cuda_face_normal;        //面的法向量

@@ -51,9 +51,11 @@ int main(int argc, char** argv)
 	main_scene->add(cloth);
 	main_scene->add(body);
 
+	//Obj bvh_body("./pose/pose0.obj");
+	//bvh_body.pretreat(0.295, 0, 1.0, 0);
+
 	vector<glm::vec3> obj_vertices;
 	vector<Primitive> h_primitives;
-
 	get_primitives(body, obj_vertices, h_primitives);
 	BVHAccel cuda_bvh(h_primitives);
 

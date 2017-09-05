@@ -258,7 +258,7 @@ void Springs::get_boundary_boundary_spring()
 				spring_obj->uni_vertices[k].z);
 			int *resultidx = (int*)kd_res_itemf(result, kdpos);
 
-			if (glm::distance(spring_obj->uni_vertices[k],spring_obj->uni_vertices[*resultidx]) < max_dist*10
+			if (glm::distance(spring_obj->uni_vertices[k],spring_obj->uni_vertices[*resultidx]) < max_dist*50
 				&& glm::distance(spring_obj->uni_vertices[k],spring_obj->uni_vertices[*resultidx]) > 0) //º”»Îæ‡¿Î≈–∂œ£¨∑¿÷π¥Ì¡¨
 			{
 				boundary_boundary_springs.push_back(make_pair(k,*resultidx));
