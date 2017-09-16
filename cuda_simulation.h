@@ -2,6 +2,7 @@
 #include "load_obj.h"
 #include "parameter.h"
 #include "./bvh/bvh.h"
+#include "spring.h"
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 
@@ -11,7 +12,7 @@ class CUDA_Simulation
 public:
 	CUDA_Simulation();
 	~CUDA_Simulation();
-	CUDA_Simulation(Obj& cloth);
+	CUDA_Simulation(Obj& cloth, Springs& springs);
 	void simulate();
 	void add_bvh(BVHAccel& bvh);
 
@@ -46,9 +47,10 @@ public:
 	BRTreeNode*  d_leaf_nodes;   //for bvh tree
 	BRTreeNode*  d_internal_nodes;
 	Primitive* d_primitives;
-
+	Springs* cuda_spring;
 private:
 	Obj* sim_cloth;
+
 	vector<unsigned int> vertex_adjface;    //每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志
 	unsigned int NUM_ADJFACE; 
 };

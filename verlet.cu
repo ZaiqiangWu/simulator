@@ -10,7 +10,7 @@
 
 //physics parameter,若要修改参数，还需同时修改parameter.cpp
 __device__ float spring_structure = 30;
-__device__ float spring_bend = 50;
+__device__ float spring_bend = 0.1;
 __device__ float damp = -0.0125f;
 __device__ float mass = 0.3;
 __device__ float dt = 1.0f /50.0f;
@@ -230,14 +230,14 @@ __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, 
 
 __device__ glm::vec3 get_spring_force(int index, glm::vec4* g_pos_in, glm::vec4* g_pos_old_in, glm::vec4* const_pos,
 									  unsigned int* neigh,unsigned int NUM_NEIGH,
-									  glm::vec3 pos,glm::vec3 vel)
+									  glm::vec3 pos,glm::vec3 vel,float k_spring)
 {
 	glm::vec3 force(0.0);
 	int first_neigh = index*NUM_NEIGH;   //访问一级邻域，UINT_MAX为截至标志
 	int time = 0;
 	for (int k = first_neigh; neigh[k]< UINT_MAX && time<NUM_NEIGH; k++, time++) //部分点邻域大于MAX_NEIGH(20)
 	{
-		float ks = spring_structure;
+		float ks = k_spring;
 		float kd = 0;
 
 		int index_neigh = neigh[k];
@@ -288,8 +288,8 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 
 	const glm::vec3 gravity = glm::vec3(0.0f, -0.000981*2.0f, 0.0f); //set gravity
 	glm::vec3 force = gravity*mass + vel*damp;
-	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh1, NUM_NEIGH1, pos, vel); //计算一级邻域弹簧力
-	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh2, NUM_NEIGH2, pos, vel); //计算二级邻域弹簧力
+	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh1, NUM_NEIGH1, pos, vel,spring_structure); //计算一级邻域弹簧力
+	//force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh2, NUM_NEIGH2, pos, vel,spring_bend); //计算二级邻域弹簧力
 	
 	//verlet integration
 	//collision_response(leaf_nodes, internal_nodes, primitives, force, pos, pos_old);  //******************?

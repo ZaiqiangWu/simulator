@@ -16,15 +16,22 @@ struct Face
 	unsigned int normal_index[3];
 };
 
-
-
+enum cloth_type { SINGLE_LAYER_NOB, SINGLE_LAYER_BOUNDARY };
+enum direction {X,Y,Z};
 class Obj
 {
 public:
 	Obj();
-	Obj(const string file);
+	Obj(const string file,cloth_type type = SINGLE_LAYER_BOUNDARY);
 	~Obj();
-	void pretreat(float S, float x_up, float y_up, float z_up);
+
+	void scale_translate(float S, float x_up, float y_up, float z_up);
+
+	// unify the data, so that one vertex -> one normal -> one texture, 
+	// or error acurred while rendering
+	void unified();  
+	cloth_type get_obj_type();
+	void rotation(float angle, direction dir);
 	
 
 
@@ -51,8 +58,9 @@ public:
 	vector<pair<string,unsigned int>> face_group;
 
 private:
-	void change_size(float S, float x_up, float y_up, float z_up);
-	void unified();   //one vertices -> one tex -> one normal
+	
+	cloth_type obj_type;
+	glm::vec3 get_center();
 
 };
 

@@ -16,30 +16,23 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_p
 
 CUDA_Simulation::CUDA_Simulation()
 {
+	
 }
 
 CUDA_Simulation::~CUDA_Simulation()
 {
 }
 
-CUDA_Simulation::CUDA_Simulation(Obj& cloth):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(sim_parameter.NUM_ADJFACE)
+CUDA_Simulation::CUDA_Simulation(Obj& cloth, Springs& springs):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(sim_parameter.NUM_ADJFACE),cuda_spring(&springs)
 {
-	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, cloth.vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
+	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, sim_cloth->vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
 	if (cudaStatus != cudaSuccess)
 		fprintf(stderr, "register failed\n");
 
 	get_vertex_adjface();     //必须位于init_cuda前面，否则邻域数据为空
 	init_cuda();              //将相关数据传送GPU
 
-	//test
-	//for(int i=0;i<200;i++)
-	//{
-	//	if(i%20 == 0)
-	//		cout << endl;
-	//	cout << vertex_adjface[i] << "  ";
-	//	
-	//}
-	//exit(-1);
+
 		
 }
 
@@ -93,9 +86,9 @@ void CUDA_Simulation::init_cuda()
 	cudaStatus = cudaMalloc((void**)&cuda_vertex_adjface, vertex_adjface_bytes);
 	cudaStatus = cudaMemcpy(cuda_vertex_adjface, &vertex_adjface[0], vertex_adjface_bytes, cudaMemcpyHostToDevice);
 	
-	Springs cuda_spring(sim_cloth);    //弹簧信息，即两级邻域点信息传送GPU
-	cuda_neigh1 = cuda_spring.cuda_neigh1;
-	cuda_neigh2 = cuda_spring.cuda_neigh2;
+	//弹簧信息，即两级邻域点信息传送GPU
+	cuda_neigh1 = cuda_spring->cuda_neigh1;
+	cuda_neigh2 = cuda_spring->cuda_neigh2;
 }
 
 void CUDA_Simulation::get_vertex_adjface()

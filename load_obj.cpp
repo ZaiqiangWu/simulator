@@ -11,7 +11,7 @@ using namespace std;
 
 
 
-Obj::Obj(const string file):obj_file(file)
+Obj::Obj(const string file, cloth_type type):obj_file(file),obj_type(type)
 {
 	ifstream input(file);
 	if(!input)
@@ -210,40 +210,25 @@ Obj::Obj(const string file):obj_file(file)
 		cout << file << " load successfully!" << endl;
 	}
 
-
+	cout << "vertices size" << vertices.size() << endl;
 
 }
 
 Obj::~Obj()
 {}
 
-void Obj::pretreat(float S, float x_up, float y_up, float z_up)
-{
-	change_size(S, x_up, y_up, z_up);  //
-	unified();   	//unify it first for simulation and render
-}
 
-void Obj::change_size(float S, float x_up, float y_up, float z_up)
+void Obj::scale_translate(float S, float x_up, float y_up, float z_up)
 {
-	int n = vertices.size();
-	float sumx = 0, sumy = 0, sumz = 0;
-	float avex, avey, avez;
-	for (int i = 0; i<n; ++i)
-	{
-		sumx += vertices[i].x;
-		sumy += vertices[i].y;
-		sumz += vertices[i].z;
-	}
-	avex = sumx / n;
-	avey = sumy / n;
-	avez = sumz / n;
-
+	//获取模型中心坐标
+	glm::vec3 center = get_center();
 	//const float up = 1.2;
+	int n = vertices.size();
 	for (int i = 0; i<n; ++i)
 	{
-		vertices[i].x = (vertices[i].x - avex) / S; vertices[i].x += x_up;
-		vertices[i].y = (vertices[i].y - avey) / S; vertices[i].y += y_up;
-		vertices[i].z = (vertices[i].z - avez) / S; vertices[i].z += z_up;
+		vertices[i].x = (vertices[i].x - center.x) / S; vertices[i].x += x_up;
+		vertices[i].y = (vertices[i].y - center.y) / S; vertices[i].y += y_up;
+		vertices[i].z = (vertices[i].z - center.z) / S; vertices[i].z += z_up;
 	}
 }
 
@@ -262,4 +247,64 @@ void Obj::unified()
 			vertex_index.push_back(faces[i].vertex_index[j]);
 		}
 	}
+}
+
+cloth_type Obj::get_obj_type()
+{
+	return obj_type;
+}
+
+void Obj::rotation(float angle, direction dir)
+{
+	angle = angle / 180 * 3.1415;
+	glm::vec3 center = get_center();
+	glm::mat4x4 R_matrix;
+	if (dir == X)
+		R_matrix = { {1.0, 0.0, 0.0, 0.0},
+					{0.0, cos(angle), -sin(angle), 0.0},
+					{0.0, sin(angle), cos(angle), 0.0},
+					{0.0, 0.0, 0.0, 1.0}
+				   };
+	else if(dir == Y)
+	{
+		R_matrix = { {cos(angle), 0, -sin(angle), 0},
+					{0, 1.0, 0, 0},
+					{sin(angle), 0, cos(angle), 0},
+					{0, 0, 0, 1.0}
+					};
+	}
+	else
+	{
+		R_matrix = { {cos(angle), -sin(angle), 0, 0},
+					{sin(angle), cos(angle), 0, 0},
+					{0, 0, 1, 0},
+					{0, 0, 0, 1}
+					};
+	}
+
+	int n = vertices.size();
+	for (auto& vertex : vertices)
+	{
+		vertex -= glm::vec4(center, 0.0);
+		vertex = R_matrix*vertex;
+		vertex += glm::vec4(center, 0.0);
+	}
+
+}
+
+glm::vec3 Obj::get_center()
+{
+	glm::vec3 center;
+	int n = vertices.size();
+	float sumx = 0, sumy = 0, sumz = 0;
+	for (int i = 0; i<n; ++i)
+	{
+		sumx += vertices[i].x;
+		sumy += vertices[i].y;
+		sumz += vertices[i].z;
+	}
+	center.x = sumx / n;
+	center.y = sumy / n;
+	center.z = sumz / n;
+	return center;
 }

@@ -73,6 +73,7 @@ void Scene::RenderBuffer(VAO_Buffer vao_buffer)
 	glUniformMatrix4fv(renderShader("projection"), 1, GL_FALSE, projection);
 	glUniform3fv(renderShader("viewPos"), 1, eyeDir);
 
+	//glPointSize(1);
 	glBindVertexArray(vao_buffer.vao);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vao_buffer.index_buffer);
 		glBindTexture(GL_TEXTURE_2D, vao_buffer.texture);
@@ -172,7 +173,7 @@ void Scene::screenshot()
 
 	// Convert to FreeImage format & save to file
 	FIBITMAP* image = FreeImage_ConvertFromRawBits(pixels, current_width, current_height, 3 * current_width, 24, 0x0000FF, 0xFF0000, 0x00FF00, false);
-	string str = "./screenshot/screenshot";
+	string str = "../screenshot/screenshot";
 	str += to_string(num_screenshot++);
 	str += ".bmp";
 
@@ -181,6 +182,7 @@ void Scene::screenshot()
 	// Free resources
 	FreeImage_Unload(image);
 	delete[] pixels;
+	cout << str << " saved successfully!" << endl;
 }
 // OPENGL场景的各种函数
 void Scene::DrawGrid()
@@ -204,10 +206,8 @@ void Scene::RenderGPU_CUDA()
 {
 	if (pscene->simulation)
 	{
-		pscene->pscene->simulation->simulate();
+		pscene->simulation->simulate();
 	}
-	
-		
 
 	for (auto vao:pscene->obj_vaos)
 		pscene->RenderBuffer(vao);
@@ -230,11 +230,14 @@ void Scene::onRender()
 	viewDir.z = (float)-modelview[10];
 	Right = glm::cross(viewDir, Up);
 
-	//DrawGrid();
+	//画出包围盒，AABB TREE
 	if (pscene->h_bvh)
 	{
 		pscene->h_bvh->draw(pscene->h_bvh->get_root());
 	}
+	//画出构建的两级弹簧
+	//pscene->simulation->cuda_spring->draw();
+
 	RenderGPU_CUDA();
 
 	glutSwapBuffers();
@@ -343,8 +346,8 @@ void Scene::OnKey(unsigned char key, int, int)
 	case 'W':dy -= 0.1; break;
 	case 'S':
 	case 's':dy += 0.1; break;
-	case 'c':
-	case 'C':screenshot(); break;
+	case 'x':
+	case 'X':screenshot(); break;
 	default:
 		break;
 	}

@@ -25,6 +25,7 @@ public:
 	Springs();
 	~Springs();
 	Springs(Obj* cloth);  //创建两级邻域，boundary and cloth弹簧劲度系数一致
+	void draw();
 
 
 public:

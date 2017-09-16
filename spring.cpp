@@ -45,9 +45,12 @@ bool Springs::exist(const vector<unsigned int>& array, const unsigned int val)
 Springs::Springs(Obj* cloth): NUM_NEIGH1(sim_parameter.NUM_NEIGH1),NUM_NEIGH2(sim_parameter.NUM_NEIGH2),spring_obj(cloth)
 {
 	cout << "build springs" << endl;
-
-	get_cloth_boundary_spring(); //后面需要依赖
-	get_boundary_boundary_spring();
+	if (spring_obj->get_obj_type() == SINGLE_LAYER_BOUNDARY)
+	{
+		get_cloth_boundary_spring(); //后面需要依赖
+		get_boundary_boundary_spring();
+	}
+	
 
 	//create neigh1 for each vertex
 	neigh1.resize(cloth->uni_vertices.size());
@@ -73,6 +76,7 @@ Springs::Springs(Obj* cloth): NUM_NEIGH1(sim_parameter.NUM_NEIGH1),NUM_NEIGH2(si
 		if(!exist(neigh1[f[2]],f[1]))
 			neigh1[f[2]].push_back(f[1]);
 	}
+
 	for(int i=0;i<cloth_boundary_springs.size();i++)
 	{
 		unsigned int idx1 = cloth_boundary_springs[i].first;
@@ -82,13 +86,6 @@ Springs::Springs(Obj* cloth): NUM_NEIGH1(sim_parameter.NUM_NEIGH1),NUM_NEIGH2(si
 		neigh1[idx2].push_back(idx1);
 	}
 
-	//for(int i=0;i<boundary_boundary_springs.size();i++)
-	//{
-	//	unsigned int idx1 = boundary_boundary_springs[i].first;
-	//	unsigned int idx2 = boundary_boundary_springs[i].second;
-
-	//	neigh1[idx1].push_back(idx2);
-	//}
 	for(auto spring:boundary)
 		neigh1[spring.first].push_back(spring.second);
 
@@ -321,4 +318,36 @@ void Springs::get_boundary_boundary_spring()
 	//}
 
 
+}
+
+void Springs::draw()
+{
+	for (int i = 0; i < neigh1.size(); i++)
+	{
+		glm::vec4 v1 = spring_obj->uni_vertices[i];
+		for (int j = 0; j < neigh1[i].size(); j++)
+		{
+			glm::vec4 v2 = spring_obj->uni_vertices[neigh1[i][j]];
+	
+			glBegin(GL_LINES);
+			glColor3f(1.0, 1.0, 1.0);
+			glVertex3f(v1.x, v1.y, v1.z);
+			glVertex3f(v2.x, v2.y, v2.z);
+			glEnd();
+		}
+	}
+
+	for (int i = 0; i < neigh2.size(); i++)
+	{
+		glm::vec4 v1 = spring_obj->uni_vertices[i];
+		for (int j = 0; j < neigh2[i].size(); j++)
+		{
+			glm::vec4 v2 = spring_obj->uni_vertices[neigh2[i][j]];
+			glBegin(GL_LINES);
+			glColor3f(1.0, 0, 0);
+			glVertex3f(v1.x, v1.y, v1.z);
+			glVertex3f(v2.x, v2.y, v2.z);
+			glEnd();
+		}
+	}
 }

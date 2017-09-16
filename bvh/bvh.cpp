@@ -96,7 +96,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 
 	}
 	primitives = new_pri;
-	cout << primitives.size() << endl;
+	cout << "triangle size: " << primitives.size() << endl;
 
 	//whether to set h_vertices = NULL before send to gpu?
 	copyFromCPUtoGPU((void**)&d_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
