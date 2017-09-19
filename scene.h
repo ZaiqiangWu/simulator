@@ -25,6 +25,7 @@ public:
 	void RenderBuffer(VAO_Buffer vao_buffer);
 	vector<VAO_Buffer> obj_vaos;
 	
+	
 
 private:
 	Scene(int argc, char** argv);  //initial
@@ -65,6 +66,7 @@ private:
 	static glm::vec3 Up, Right, viewDir;
 	static int selected_index;
 	static const int width = 1024, height = 1024;
+
 };
 
 

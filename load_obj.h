@@ -32,6 +32,8 @@ public:
 	void unified();  
 	cloth_type get_obj_type();
 	void rotation(float angle, direction dir);
+	//沿着NORMAL方向扩展点，不同于SCALE
+	void vertex_extend(float dist);   
 	
 
 

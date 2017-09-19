@@ -15,6 +15,8 @@ public:
 	CUDA_Simulation(Obj& cloth, Springs& springs);
 	void simulate();
 	void add_bvh(BVHAccel& bvh);
+	//debug
+	void draw_collided_vertex();
 
 private:
 	void get_vertex_adjface();
@@ -48,6 +50,12 @@ public:
 	BRTreeNode*  d_internal_nodes;
 	Primitive* d_primitives;
 	Springs* cuda_spring;
+
+	//debug
+	int* collided_vertex;
+	vector<int> cpu_collided_veretx;
+	vector<glm::vec4> updated_vertex;
+
 private:
 	Obj* sim_cloth;
 

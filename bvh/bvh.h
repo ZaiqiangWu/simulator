@@ -54,6 +54,7 @@ public:
 
 		bool check_overlap(const glm::vec3 point, BRTreeNode* node) const;
 
+	//显示包围盒之前需要调用，完成数据从GPU到CPU的拷贝
 	void pre_drawoutline();  //for test
 	void draw(BRTreeNode* root);
 	void access(BRTreeNode* root, vector<BRTreeNode*>& bad_bode);

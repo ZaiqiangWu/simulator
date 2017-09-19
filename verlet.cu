@@ -10,7 +10,7 @@
 
 //physics parameter,若要修改参数，还需同时修改parameter.cpp
 __device__ float spring_structure = 30;
-__device__ float spring_bend = 0.1;
+__device__ float spring_bend = 1.0;
 __device__ float damp = -0.0125f;
 __device__ float mass = 0.3;
 __device__ float dt = 1.0f /50.0f;
@@ -180,9 +180,9 @@ __device__ void collision_response_projection(BRTreeNode*  leaf_nodes, BRTreeNod
 	{
 		float dist;
 		glm::vec3 normal;
-		if (primitives[idx_pri].d_intersect(pos, dist, normal))
+		if (primitives[idx_pri].d_intersect(pos, dist, normal))  //primitives[idx_pri].d_intersect(pos, dist, normal)
 		{
-			dist = 0.02 * glm::abs(dist);    // //collision response with penalty force
+			dist = glm::abs(dist)+ 0.001;    // //collision response with penalty force
 			pos += dist*normal;
 			pos_old = pos;
 
@@ -195,6 +195,29 @@ __device__ void collision_response_projection(BRTreeNode*  leaf_nodes, BRTreeNod
 	else
 		collision_force[idx] = glm::vec3(0.0);
 
+}
+
+//debug
+__device__ bool collide(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,
+	glm::vec3& force, glm::vec3& pos, glm::vec3& pos_old,
+	int idx, glm::vec3* collision_force)
+{
+	int idx_pri;
+	bool inter = intersect(leaf_nodes, internal_nodes, pos, idx_pri);
+	if (inter)
+	{
+		float dist;
+		glm::vec3 normal;
+		if (primitives[idx_pri].d_intersect(pos, dist, normal))
+		{
+			return true;
+		}
+		else
+			return false;
+
+	}
+	else
+		return false;
 }
 
 
@@ -272,7 +295,8 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 					  unsigned int* neigh1, unsigned int* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
 					  const unsigned int NUM_VERTICES,
-					BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives, glm::vec3* collision_force)
+					BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives, glm::vec3* collision_force,
+					int* collided_vertex)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= NUM_VERTICES)
@@ -289,13 +313,13 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 	const glm::vec3 gravity = glm::vec3(0.0f, -0.000981*2.0f, 0.0f); //set gravity
 	glm::vec3 force = gravity*mass + vel*damp;
 	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh1, NUM_NEIGH1, pos, vel,spring_structure); //计算一级邻域弹簧力
-	//force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh2, NUM_NEIGH2, pos, vel,spring_bend); //计算二级邻域弹簧力
+	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh2, NUM_NEIGH2, pos, vel,spring_bend); //计算二级邻域弹簧力
 	
 	//verlet integration
 	//collision_response(leaf_nodes, internal_nodes, primitives, force, pos, pos_old);  //******************?
 
 	glm::vec3 inelastic_force = glm::dot(collision_force[index], force) * collision_force[index];       //collision response force, if intersected, keep tangential
-	inelastic_force *= 0.5;
+	//inelastic_force *= 0.5;
 	force -= inelastic_force;
 	glm::vec3 acc = force / mass;
 	glm::vec3 tmp = pos;
@@ -303,6 +327,15 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 	pos_old = tmp;
 	collision_response_projection(leaf_nodes, internal_nodes, primitives, force, pos, pos_old, index, collision_force);
 
+	//debug
+	if (collide(leaf_nodes, internal_nodes, primitives, force, pos, pos_old, index, collision_force))
+	{
+		collided_vertex[index] = 1;
+	}
+	else
+	{
+		collided_vertex[index] = 0;
+	}
 	
 
 

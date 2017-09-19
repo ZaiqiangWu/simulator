@@ -308,3 +308,21 @@ glm::vec3 Obj::get_center()
 	center.z = sumz / n;
 	return center;
 }
+
+void Obj::vertex_extend(float dist)
+{
+	vector<bool> visited(vertices.size(),false);
+	for (int i = 0; i < faces.size(); i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			int v_index = faces[i].vertex_index[j];
+			if (visited[v_index] == false)
+			{
+				glm::vec3 n = normals[faces[i].normal_index[j]];
+				vertices[v_index] += dist*glm::vec4(n,0);
+				visited[v_index] = true;
+			}
+		}
+	}
+}

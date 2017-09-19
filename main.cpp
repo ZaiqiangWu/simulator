@@ -47,29 +47,19 @@ int main(int argc, char** argv)
 	//cloth.scale_translate(0.31, 0, 1.95, 0.02);
 	//cloth.unified();
 
-	Obj cloth("../cloth_no_boundary/dress1/dress1.obj", SINGLE_LAYER_NOB);
-	cloth.rotation(84, X);   //
-	cloth.scale_translate(0.22, 0, 1.5, 0.02);
+	Obj cloth("../cloth_no_boundary/dress2/dress2-iso.obj",SINGLE_LAYER_NOB);  
+	cloth.rotation(90, X);   //
+	cloth.scale_translate(0.24, 0, 1.2, 0.02); 
 	cloth.unified();
 
-	//Obj cloth("../cloth_no_boundary/test/dress3.obj", SINGLE_LAYER_NOB);
-	//cloth.rotation(84, X);   //
-	//cloth.scale_translate(0.22, 0, 1.5, 0.02);
-	//cloth.unified();
-
-	//Obj cloth("../cloth_no_boundary/dress2/dress2-iso.obj",SINGLE_LAYER_NOB);  
-	//cloth.rotation(90, X);   //
-	//cloth.scale_translate(0.24, 0, 1.50, 0.02); 
-	//cloth.unified();
-
 	//Obj cloth("../cloth_no_boundary/dress3/dress3.obj",SINGLE_LAYER_NOB);  
-	//cloth.rotation(90, X);   //
-	//cloth.scale_translate(0.24, 0, 1.50, 0.02); 
+	//cloth.rotation(90, X);   
+	//cloth.scale_translate(0.24, 0, 0.9, 0.02); 
 	//cloth.unified();
 
 	//Obj cloth("../cloth_no_boundary/dress-asymmetric/dress-asymmetric.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);   //
-	//cloth.scale_translate(0.25, 0, 1.30, 0.02);
+	//cloth.scale_translate(0.25, 0, 1.10, 0.02);
 	//cloth.unified();
 
 	//Obj cloth("../cloth_no_boundary/dress-victor/dress-victor.obj", SINGLE_LAYER_NOB);
@@ -79,17 +69,13 @@ int main(int argc, char** argv)
 
 	//Obj cloth("../cloth_no_boundary/robe/robe.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);   //
-	//cloth.scale_translate(0.29, 0, 1.30, 0.02);
+	//cloth.scale_translate(0.29, 0, 1.1, 0.02);
 	//cloth.unified();
 
 	//Obj cloth("../cloth_no_boundary/tshirt/tshirt.obj", SINGLE_LAYER_NOB);
-	//cloth.rotation(90, X);   //
-	//cloth.scale_translate(0.29, 0, 2.0, 0.02);
-	//cloth.unified();
-
-	//Obj cloth("../cloth_no_boundary/pants/pants.obj", SINGLE_LAYER_NOB);
-	//cloth.rotation(90, X);   //
-	//cloth.scale_translate(0.29, 0, -0.2, 0.02);
+	//cloth.rotation(90, X);   
+	//cloth.rotation(-5, Z);
+	//cloth.scale_translate(0.29, 0, 2, 0.02);
 	//cloth.unified();
 
 
@@ -99,6 +85,7 @@ int main(int argc, char** argv)
 	//cloth.unified();
 
 	Springs cuda_spring(&cloth);  
+
 	//Obj body("../pose/pose0.obj");
 	//body.scale_translate(0.30, 0, 1.0, 0);
 	//body.unified();
@@ -110,18 +97,23 @@ int main(int argc, char** argv)
 	main_scene->add(cloth);
 	main_scene->add(body);
 
-	//Obj bvh_body("./pose/pose0.obj");
-	//bvh_body.pretreat(0.295, 0, 1.0, 0);
+	Obj bvh_body("../pose/pose1.obj");
+	bvh_body.scale_translate(0.30, 0, 1.0, 0);
+	bvh_body.vertex_extend(0.01);
+	bvh_body.unified();
+
 
 	vector<glm::vec3> obj_vertices;
 	vector<Primitive> h_primitives;
-	get_primitives(body, obj_vertices, h_primitives);
+	get_primitives(bvh_body, obj_vertices, h_primitives);
 	BVHAccel cuda_bvh(h_primitives);
+	cuda_bvh.pre_drawoutline();
 
 
 	CUDA_Simulation simulation(cloth,cuda_spring);   //add(obj)会初始化gpu端数据，simulation需要用到这些数据
 	simulation.add_bvh(cuda_bvh);
 	main_scene->add(simulation);
+	//main_scene->add(cuda_bvh);
 	main_scene->render();
 	
 	return 0;

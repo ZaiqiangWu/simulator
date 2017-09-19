@@ -9,7 +9,7 @@ Parameter sim_parameter(    //ÈôÒªĞŞ¸Ä²ÎÊı£¬Í¬Ê±ĞèÒªĞŞ¸ÄGPU¶Ë²ÎÊı£¨verlet.cu£©,Ô
 	0.3f,                  //mass
 	1.0f /50.0f,           //dt
 	30.0,                  //pring_structure
-	0.1                   //spring_bend
+	1.0                  //spring_bend
 	);
 
 Parameter::~Parameter()

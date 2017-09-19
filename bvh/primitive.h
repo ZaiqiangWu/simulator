@@ -24,6 +24,8 @@ public:
 	*/
 	bool intersect(const glm::vec3& point) const;
 
+	glm::vec3 get_normal() const;
+
  __device__
 		bool d_intersect(const glm::vec3& point, float &dist, glm::vec3 &normal) const
 		{
@@ -37,9 +39,9 @@ public:
 			glm::vec3 tem = point - d_vertices[v0];
 			dist = glm::dot(tem, normal);
 			if (dist > 0)
-				return true;
+				return false;
 
-			return false;
+			return true;
 		}
 public:
 	const glm::vec3* vertices;  //for device, ptr to body vertices

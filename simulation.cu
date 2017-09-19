@@ -7,12 +7,14 @@
 #include <iostream>
 using namespace std;
 
+extern GLenum GL_MODE;
+
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face);   //update cloth face normal
 __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_pos_old_in, glm::vec4 * g_pos_out, glm::vec4 * g_pos_old_out,glm::vec4* const_pos,
 					  unsigned int* neigh1, unsigned int* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
 					  const unsigned int NUM_VERTICES,
-					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* collision_force);  //verlet intergration
+					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* collision_force, int* collided_vertex);  //verlet intergration
 
 CUDA_Simulation::CUDA_Simulation()
 {
@@ -21,6 +23,7 @@ CUDA_Simulation::CUDA_Simulation()
 
 CUDA_Simulation::~CUDA_Simulation()
 {
+	
 }
 
 CUDA_Simulation::CUDA_Simulation(Obj& cloth, Springs& springs):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(sim_parameter.NUM_ADJFACE),cuda_spring(&springs)
@@ -89,6 +92,12 @@ void CUDA_Simulation::init_cuda()
 	//弹簧信息，即两级邻域点信息传送GPU
 	cuda_neigh1 = cuda_spring->cuda_neigh1;
 	cuda_neigh2 = cuda_spring->cuda_neigh2;
+
+	//debug
+	cudaMalloc((void**)&collided_vertex, sizeof(int)*sim_cloth->uni_vertices.size());
+	cudaMemset(collided_vertex, 0, sizeof(int)*sim_cloth->uni_vertices.size());
+	cpu_collided_veretx.resize(sim_cloth->uni_vertices.size());
+	updated_vertex.resize(sim_cloth->uni_vertices.size());
 }
 
 void CUDA_Simulation::get_vertex_adjface()
@@ -140,13 +149,15 @@ void CUDA_Simulation::verlet_cuda()
 	
 	unsigned int numThreads, numBlocks;
 	unsigned int numParticles = sim_cloth->uni_vertices.size();
+	
 
 	computeGridSize(numParticles, 512, numBlocks, numThreads);
 	verlet <<< numBlocks, numThreads >>>(cuda_p_vertex, X_in, X_last_in, X_out, X_last_out,const_cuda_pos,
 										cuda_neigh1,cuda_neigh2,
 										cuda_p_normal,cuda_vertex_adjface,cuda_face_normal,
 										numParticles,
-										d_leaf_nodes,d_internal_nodes,d_primitives, collision_force);
+										d_leaf_nodes,d_internal_nodes,d_primitives, collision_force,
+										collided_vertex);
 
 	// stop the CPU until the kernel has been executed
 	cudaStatus = cudaDeviceSynchronize();
@@ -156,6 +167,18 @@ void CUDA_Simulation::verlet_cuda()
 			cudaStatus, cudaGetErrorString(cudaStatus));
 		exit(-1);
 	}
+
+	//debug
+	cudaMemcpy(&cpu_collided_veretx[0],collided_vertex,sizeof(int)*numParticles, cudaMemcpyDeviceToHost);
+	cudaMemcpy(&updated_vertex[0], cuda_p_vertex,sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
+	cout << "*****collided veretx index************" << endl;
+	for (int i = 0; i < cpu_collided_veretx.size(); i++)
+	{
+		if (cpu_collided_veretx[i] == 1)
+			cout << i << "  ";
+	}
+	cout << endl;
+
 }
 
 void CUDA_Simulation::computeGridSize(unsigned int n, unsigned int blockSize, unsigned int &numBlocks, unsigned int &numThreads)
@@ -182,4 +205,43 @@ void CUDA_Simulation::add_bvh(BVHAccel& bvh)
 	d_leaf_nodes = bvh.d_leaf_nodes;
 	d_internal_nodes = bvh.d_internal_nodes;
 	d_primitives = bvh.d_primitives;
+}
+
+void CUDA_Simulation::draw_collided_vertex()
+{
+
+	//draw outline first
+		for (int i = 0; i < sim_cloth->faces.size(); i++)
+		{
+			glm::vec4 ver[3];
+			glm::vec3 normal[3];
+			for (int j = 0; j < 3; j++)
+			{
+				ver[j] = updated_vertex[sim_cloth->faces[i].vertex_index[j]];
+			}
+			glPointSize(1.0);
+			glBegin(GL_MODE);
+			glColor3f(1.0, 1.0,1.0);
+			for (int j = 0; j < 3; j++)
+			{
+				glVertex3f(ver[j].x, ver[j].y, ver[j].z);
+			}
+				
+			glEnd();
+		}
+
+
+	for (int i = 0; i < cpu_collided_veretx.size(); i++)
+	{
+		glm::vec4 v = updated_vertex[i];
+		if (cpu_collided_veretx[i] == 1)
+		{
+			//draw it
+			glPointSize(10.0);
+			glBegin(GL_POINTS);
+				glColor3f(1.0, 0, 0);
+				glVertex3f(v.x, v.y, v.z);
+			glEnd();
+		}
+	}
 }

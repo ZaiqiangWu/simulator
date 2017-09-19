@@ -98,6 +98,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	primitives = new_pri;
 	cout << "triangle size: " << primitives.size() << endl;
 
+
 	//whether to set h_vertices = NULL before send to gpu?
 	copyFromCPUtoGPU((void**)&d_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
 
@@ -163,28 +164,6 @@ void BVHAccel::pre_drawoutline()
 	copyFromGPUtoCPU((void**)&h_internal_nodes, d_internal_nodes, sizeof(BRTreeNode)*numInternalNode);
 	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_leaf_nodes, sizeof(BRTreeNode)*numLeafNode);
 
-	//cout << "num internal nodes: " << numInternalNode << endl;
-	//vector<int> test;
-	//for (int i = 0; i < numInternalNode; i++)
-	//{
-	//	if (h_internal_nodes[i].bbox.min.x > h_internal_nodes[i].bbox.max.x)
-	//	{
-	//		test.push_back(i);
-	//		cout << "idx = " << i << " : ";
-	//		h_internal_nodes[i].bbox.print();
-	//	}
-	//}
-
-	//cout << "no parent in leaf node" << endl;
-	//for (int i = 0; i < numLeafNode; i++)
-	//{
-	//	bool is_null = false;
-	//	h_leaf_nodes[i].getParent(is_null);
-	//	if (is_null)
-	//		cout << i << endl;
-	//}
-
-	//exit(0);
 }
 
 

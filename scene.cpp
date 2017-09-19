@@ -26,6 +26,7 @@ static int current_width;
 static int current_height ;
 
 static int num_screenshot = 0;
+GLenum GL_MODE = GL_LINE_LOOP;
 
 Scene* Scene::getInstance(int argc, char** argv)
 {
@@ -209,8 +210,12 @@ void Scene::RenderGPU_CUDA()
 		pscene->simulation->simulate();
 	}
 
-	for (auto vao:pscene->obj_vaos)
-		pscene->RenderBuffer(vao);
+	//for (auto vao:pscene->obj_vaos)
+	//	pscene->RenderBuffer(vao);
+
+	//debug
+	for(int i=0;i<pscene->obj_vaos.size();i++)
+		pscene->RenderBuffer(pscene->obj_vaos[1]);
 
 }
 void Scene::onRender()
@@ -237,6 +242,9 @@ void Scene::onRender()
 	}
 	//画出构建的两级弹簧
 	//pscene->simulation->cuda_spring->draw();
+
+	//debug,画出检测到碰撞的点
+	pscene->simulation->draw_collided_vertex();
 
 	RenderGPU_CUDA();
 
@@ -348,6 +356,15 @@ void Scene::OnKey(unsigned char key, int, int)
 	case 's':dy += 0.1; break;
 	case 'x':
 	case 'X':screenshot(); break;
+	case 'M':
+	case 'm':	
+		if (GL_MODE == GL_LINE_LOOP)
+			GL_MODE = GL_TRIANGLES;
+		else if(GL_MODE == GL_TRIANGLES)
+			GL_MODE = GL_POINTS;
+		else
+			GL_MODE = GL_LINE_LOOP;
+		break;
 	default:
 		break;
 	}
