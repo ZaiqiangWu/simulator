@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 	Scene* main_scene = Scene::getInstance(argc, argv); //initialize opengl 
 
 	//测试衣服
-	//Obj cloth("../cloth/cloth.obj");  
+	//Obj cloth("../cloth/cloth.obj");    //pose0
 	//cloth.scale_translate(0.31, 0, 1.95, 0.02);
 	//cloth.unified();
 
@@ -63,7 +63,7 @@ int main(int argc, char** argv)
 	//cloth.unified();
 
 	//Obj cloth("../cloth_no_boundary/dress-victor/dress-victor.obj", SINGLE_LAYER_NOB);
-	//cloth.rotation(90, X);   //
+	//cloth.rotation(90, X);   
 	//cloth.scale_translate(0.25, 0, 1.60, 0.02);
 	//cloth.unified();
 
@@ -78,10 +78,32 @@ int main(int argc, char** argv)
 	//cloth.scale_translate(0.29, 0, 2, 0.02);
 	//cloth.unified();
 
+	//Obj cloth("../cloth_no_boundary/shirt/shirt.obj", SINGLE_LAYER_NOB);
+	//cloth.rotation(90, X);   
+	//cloth.rotation(-4, Z);
+	//cloth.scale_translate(0.28, 0, 2.0, 0.02);
+	//cloth.unified();
+
+	//Obj cloth("../cloth_no_boundary/skirt/skirt.obj", SINGLE_LAYER_NOB);
+	//cloth.rotation(90, X);   
+	//cloth.scale_translate(0.29, 0, 0.5, 0);
+	//cloth.unified();
+
+	//Obj cloth("../cloth_no_boundary/tshirt2/tshirt2.obj", SINGLE_LAYER_NOB);
+	//cloth.rotation(90, X);   
+	//cloth.rotation(-4, Z);
+	//cloth.scale_translate(0.26, 0, 1.9, 0.02);
+	//cloth.unified();
+
 
 	//Obj cloth("../cloth_no_boundary/shorts/shorts.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);   //
 	//cloth.scale_translate(0.29, 0, 0.5, 0);
+	//cloth.unified();
+
+	//Obj cloth("../cloth_no_boundary/vest/vest.obj",SINGLE_LAYER_NOB);  
+	//cloth.rotation(90, X);   
+	//cloth.scale_translate(0.30, 0, 1.7, 0.02); 
 	//cloth.unified();
 
 	Springs cuda_spring(&cloth);  
@@ -97,8 +119,7 @@ int main(int argc, char** argv)
 	main_scene->add(cloth);
 	main_scene->add(body);
 
-	Obj bvh_body("../pose/pose1.obj");
-	bvh_body.scale_translate(0.30, 0, 1.0, 0);
+	Obj bvh_body = body;
 	bvh_body.vertex_extend(0.01);
 	bvh_body.unified();
 
@@ -107,13 +128,13 @@ int main(int argc, char** argv)
 	vector<Primitive> h_primitives;
 	get_primitives(bvh_body, obj_vertices, h_primitives);
 	BVHAccel cuda_bvh(h_primitives);
-	cuda_bvh.pre_drawoutline();
+	//cuda_bvh.pre_drawoutline();
+	//main_scene->add(cuda_bvh);
 
 
 	CUDA_Simulation simulation(cloth,cuda_spring);   //add(obj)会初始化gpu端数据，simulation需要用到这些数据
 	simulation.add_bvh(cuda_bvh);
 	main_scene->add(simulation);
-	//main_scene->add(cuda_bvh);
 	main_scene->render();
 	
 	return 0;
