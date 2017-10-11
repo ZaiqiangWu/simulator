@@ -11,10 +11,11 @@ extern GLenum GL_MODE;
 
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face);   //update cloth face normal
 __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_pos_old_in, glm::vec4 * g_pos_out, glm::vec4 * g_pos_old_out,glm::vec4* const_pos,
-					  unsigned int* neigh1, unsigned int* neigh2,
+						s_spring* neigh1, s_spring* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
 					  const unsigned int NUM_VERTICES,
-					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* collision_force, int* collided_vertex);  //verlet intergration
+					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* collision_force, int* collided_vertex,
+					glm::vec3* d_force,glm::vec3* d_velocity, float timestep);  //verlet intergration
 
 CUDA_Simulation::CUDA_Simulation()
 {
@@ -26,7 +27,7 @@ CUDA_Simulation::~CUDA_Simulation()
 	
 }
 
-CUDA_Simulation::CUDA_Simulation(Obj& cloth, Springs& springs):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(sim_parameter.NUM_ADJFACE),cuda_spring(&springs)
+CUDA_Simulation::CUDA_Simulation(Obj& cloth, Springs& springs):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(20),cuda_spring(&springs),dt(1/20.0)
 {
 	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, sim_cloth->vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
 	if (cudaStatus != cudaSuccess)
@@ -93,11 +94,16 @@ void CUDA_Simulation::init_cuda()
 	cuda_neigh1 = cuda_spring->cuda_neigh1;
 	cuda_neigh2 = cuda_spring->cuda_neigh2;
 
-	//debug
+#ifdef _DEBUG
 	cudaMalloc((void**)&collided_vertex, sizeof(int)*sim_cloth->uni_vertices.size());
 	cudaMemset(collided_vertex, 0, sizeof(int)*sim_cloth->uni_vertices.size());
 	cpu_collided_veretx.resize(sim_cloth->uni_vertices.size());
 	updated_vertex.resize(sim_cloth->uni_vertices.size());
+#endif
+
+	cudaStatus = cudaMalloc((void**)&d_force, sizeof(glm::vec3)*sim_cloth->uni_vertices.size());
+	cudaStatus = cudaMalloc((void**)&d_velocity, sizeof(glm::vec3)*sim_cloth->uni_vertices.size());
+
 }
 
 void CUDA_Simulation::get_vertex_adjface()
@@ -157,7 +163,8 @@ void CUDA_Simulation::verlet_cuda()
 										cuda_p_normal,cuda_vertex_adjface,cuda_face_normal,
 										numParticles,
 										d_leaf_nodes,d_internal_nodes,d_primitives, collision_force,
-										collided_vertex);
+										collided_vertex,
+										d_force,d_velocity,dt);
 
 	// stop the CPU until the kernel has been executed
 	cudaStatus = cudaDeviceSynchronize();
@@ -168,9 +175,9 @@ void CUDA_Simulation::verlet_cuda()
 		exit(-1);
 	}
 
-	//debug
-	cudaMemcpy(&cpu_collided_veretx[0],collided_vertex,sizeof(int)*numParticles, cudaMemcpyDeviceToHost);
-	cudaMemcpy(&updated_vertex[0], cuda_p_vertex,sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
+#ifdef _DEBUG
+	cudaMemcpy(&cpu_collided_veretx[0], collided_vertex, sizeof(int)*numParticles, cudaMemcpyDeviceToHost);
+	cudaMemcpy(&updated_vertex[0], cuda_p_vertex, sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
 	cout << "*****collided veretx index************" << endl;
 	for (int i = 0; i < cpu_collided_veretx.size(); i++)
 	{
@@ -178,7 +185,26 @@ void CUDA_Simulation::verlet_cuda()
 			cout << i << "  ";
 	}
 	cout << endl;
+#endif // DEBUG
 
+	//compute sum_force, sum_velocity;
+	/*vector<glm::vec3> cpu_force(numParticles);
+	vector<glm::vec3> cpu_velocity(numParticles);
+	cudaMemcpy(&cpu_force[0], d_force, sizeof(glm::vec3)*numParticles, cudaMemcpyDeviceToHost);
+	cudaMemcpy(&cpu_velocity[0], d_velocity, sizeof(glm::vec3)*numParticles, cudaMemcpyDeviceToHost);
+
+	sum_force = glm::vec3(0.0);
+	sum_velocity = 0.0;
+	for (int i = 0; i < numParticles; i++)
+	{
+		sum_force += cpu_force[i];
+		sum_velocity += glm::length(cpu_velocity[i]);
+	}
+	sum_force /= numParticles;
+	sum_velocity /= numParticles;
+	cout << glm::length(sum_force) << "  " << sum_velocity << endl;*/
+	/*if (glm::length(sum_force) < 0.0006)
+		dt = 0.001;*/
 }
 
 void CUDA_Simulation::computeGridSize(unsigned int n, unsigned int blockSize, unsigned int &numBlocks, unsigned int &numThreads)

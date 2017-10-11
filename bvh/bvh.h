@@ -66,6 +66,8 @@ private:
 	unsigned int morton3D(glm::vec3 pos);
 	static bool mortonCompare(const Primitive& p1, const Primitive& p2);
 	void ParallelBVHFromBRTree(BRTreeNode* _d_leaf_nodes, BRTreeNode* _d_internal_nodes);
+
+
 public:
 
 	Primitive* d_primitives;

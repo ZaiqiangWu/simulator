@@ -9,6 +9,14 @@ using namespace std;
 extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
 extern inline void copyFromGPUtoCPU(void** dst, void* src, int size);
 
+//__global__ void extract_bboxes_mortonCode(int num, BBox* boxes,unsigned int* morton_code)
+//{
+//	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+//	if (index >= num)
+//		return;
+//
+//}
+
 // Expands a 10-bit integer into 30 bits
 // by inserting 2 zeros after each bit.
 unsigned int BVHAccel::expandBits(unsigned int v)
@@ -61,6 +69,8 @@ void BVHAccel::ParallelBVHFromBRTree(BRTreeNode* _d_leaf_nodes, BRTreeNode* _d_i
 BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	size_t max_leaf_size)
 {
+	stop_watch watch;
+
 	this->primitives = _primitives;
 
 	// edge case
@@ -69,21 +79,30 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	}
 
 	// calculate root AABB size
+	watch.start();
 	BBox bb;
 	for (size_t i = 0; i < primitives.size(); ++i) {
 		bb.expand(primitives[i].get_bbox());
 	}
+	watch.stop();
+	cout << "expand time elapsed: " << watch.elapsed() << "us" << endl;
 
+	watch.restart();
 	// calculate morton code for each primitives
 	for (size_t i = 0; i < primitives.size(); ++i) {
 		unsigned int morton_code = morton3D(bb.getUnitcubePosOf(primitives[i].get_bbox().centroid()));
 		primitives[i].morton_code = morton_code;
 	}
+	watch.stop();
+	cout << "morton code time elapsed: " << watch.elapsed() << "us" << endl;
 
-
+	watch.restart();
 	// sort primitives using morton code -> use thrust::sort(parrallel sort)?
 	std::sort(primitives.begin(), primitives.end(), mortonCompare);
+	watch.stop();
+	cout << "sort time elapsed: " << watch.elapsed() << "us" << endl;
 
+	watch.restart();
 	//remove duplicates
 	vector<Primitive> new_pri;
 	for (int i = 1; i < primitives.size();i++)
@@ -96,12 +115,20 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 
 	}
 	primitives = new_pri;
+	watch.stop();
+	cout << "remove duplicate time elapsed: " << watch.elapsed() << "us" << endl;
 	cout << "triangle size: " << primitives.size() << endl;
 
 
+	watch.restart();
 	//whether to set h_vertices = NULL before send to gpu?
 	copyFromCPUtoGPU((void**)&d_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
 
+	//unsigned int numThreads0, numBlocks0;
+	//int n = primitives.size();
+	//numThreads0 = min(512, n);
+	//numBlocks0 = (n % numThreads0 != 0) ? (n / numThreads0 + 1) : (n / numThreads0);
+	//extract_bboxes_mortonCode << < numBlocks, numThreads >> > (n,);
 	// extract bboxes array
 	std::vector<BBox> bboxes(primitives.size());
 	for (int i = 0; i < primitives.size(); i++)
@@ -116,16 +143,18 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 		sorted_morton_codes[i] = primitives[i].morton_code;
 	}
 
+	watch.stop();
+	cout << "others time elapsed: " << watch.elapsed() << "us" << endl;
 
 	// delegate the binary radix tree construction process to GPU
 	cout << "start building parallel brtree" << endl;
-	stop_watch watch;
-	watch.start();
+	watch.restart();
 	ParallelBRTreeBuilder builder(&sorted_morton_codes[0], &bboxes[0], primitives.size());
 	builder.build();
 	watch.stop();
 	cout << "done with time elapsed: " << watch.elapsed() << "us" << endl;
 
+	watch.restart();
 	numInternalNode = builder.numInternalNode;
 	numLeafNode = builder.numLeafNode;
 	// construct BVH based on Binary Radix Tree --> need to be built in gpu?
@@ -136,6 +165,10 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	// free the host memory because I am a good programmer
 	builder.freeDeviceMemory();
 	builder.freeHostMemory();
+	watch.stop();
+	cout << "free time elapsed: " << watch.elapsed() << "us" << endl;
+	//exit(0);
+
 }
 
 BVHAccel::~BVHAccel() {  }

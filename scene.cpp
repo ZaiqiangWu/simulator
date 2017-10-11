@@ -210,17 +210,21 @@ void Scene::RenderGPU_CUDA()
 		pscene->simulation->simulate();
 	}
 
-	//for (auto vao:pscene->obj_vaos)
-	//	pscene->RenderBuffer(vao);
 
-	//debug
+	
+
+#ifdef _DEBUG
 	for(int i=0;i<pscene->obj_vaos.size();i++)
 		pscene->RenderBuffer(pscene->obj_vaos[1]);
-
+#else
+	for (auto vao : pscene->obj_vaos)
+		pscene->RenderBuffer(vao);
+#endif
 }
 void Scene::onRender()
 {
 	getFPS();
+	//glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
 	glTranslatef(0, dy, 0);
@@ -235,6 +239,8 @@ void Scene::onRender()
 	viewDir.z = (float)-modelview[10];
 	Right = glm::cross(viewDir, Up);
 
+	
+#ifdef _DEBUG
 	//画出包围盒，AABB TREE
 	if (pscene->h_bvh)
 	{
@@ -243,8 +249,9 @@ void Scene::onRender()
 	//画出构建的两级弹簧
 	//pscene->simulation->cuda_spring->draw();
 
-	//debug,画出检测到碰撞的点
+	//画出检测到碰撞的点
 	pscene->simulation->draw_collided_vertex();
+#endif
 
 	RenderGPU_CUDA();
 

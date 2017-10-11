@@ -237,14 +237,15 @@ void Obj::unified()
 	uni_vertices = vertices;
 	uni_tex.resize(uni_vertices.size());
 	uni_normals.resize(uni_vertices.size());
+	vertex_index.resize(faces.size() * 3);
 
 	for(int i=0;i<faces.size();i++)
 	{
 		for(int j=0;j<3;j++)
 		{
 			uni_tex[faces[i].vertex_index[j]] = tex[faces[i].tex_index[j]];
-			uni_normals[faces[i].vertex_index[j]] = normals[faces[i].normal_index[j]];
-			vertex_index.push_back(faces[i].vertex_index[j]);
+			uni_normals[faces[i].vertex_index[j]] = normals[faces[i].normal_index[j]];  
+			vertex_index[i*3+j] = faces[i].vertex_index[j]; 
 		}
 	}
 }

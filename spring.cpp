@@ -6,7 +6,7 @@
 #include <iostream>
 #include <cuda_runtime.h>
 using namespace std;
-
+float min_float = 0.000001;
 
 
 Matrix::~Matrix()
@@ -18,14 +18,48 @@ void Matrix::Insert_Matrix(
 	unsigned int i,
 	unsigned int j,
 	unsigned int k,
-	vector<pair<unsigned int,unsigned int>> &value_inline)
+	vector<pair<unsigned int,unsigned int>> &value_inline,
+	map<pair<unsigned int, unsigned int>, float>& spring_length)
 {
 	map<pair<unsigned int,unsigned int>,unsigned int>::iterator ite1 = mat.find(make_pair(i,j));
 	map<pair<unsigned int,unsigned int>,unsigned int>::iterator ite2 = mat.find(make_pair(j,i));
 	if(mat.end()!=ite1)
-		{value_inline.push_back(make_pair(ite1->second,k));return;}
+	{
+		value_inline.push_back(make_pair(ite1->second,k));
+		int v1,v2,v3,v4; //v3, v4 为公用点
+		v1 = ite1->second;
+		v2 = k;
+		v3 = ite1->first.first;
+		v4 = ite1->first.second;
+		glm::vec3 e1 = obj->uni_vertices[v1] - obj->uni_vertices[v3];
+		glm::vec3 e2 = obj->uni_vertices[v4] - obj->uni_vertices[v3];
+		glm::vec3 e3 = obj->uni_vertices[v2] - obj->uni_vertices[v3];
+
+		float theta1 = glm::acos(glm::dot(e1, e2) / (glm::length(e1)*glm::length(e2) + min_float));
+		float theta2 = glm::acos(glm::dot(e3, e2) / (glm::length(e3)*glm::length(e2) + +min_float));
+		float length = glm::sqrt(glm::dot(e1, e1) + glm::dot(e3, e3) - 2 * glm::length(e1)*glm::length(e3)*glm::cos(theta1 + theta2));
+		spring_length.insert(make_pair(make_pair(ite1->second, k), length));
+		return;
+	}
 	if(mat.end()!=ite2)
-		{value_inline.push_back(make_pair(ite2->second,k));return;}
+	{
+		value_inline.push_back(make_pair(ite2->second,k));
+		int v1, v2, v3, v4; //v3, v4 为公用点
+		v1 = ite2->second;
+		v2 = k;
+		v3 = ite2->first.first;
+		v4 = ite2->first.second;
+		glm::vec3 e1 = obj->uni_vertices[v1] - obj->uni_vertices[v3];
+		glm::vec3 e2 = obj->uni_vertices[v4] - obj->uni_vertices[v3];
+		glm::vec3 e3 = obj->uni_vertices[v2] - obj->uni_vertices[v3];
+
+		float theta1 = glm::acos(glm::dot(e1, e2) / (glm::length(e1)*glm::length(e2) + min_float));
+		float theta2 = glm::acos(glm::dot(e3, e2) / (glm::length(e3)*glm::length(e2) + min_float));
+		float length = glm::sqrt(glm::dot(e1, e1) + glm::dot(e3, e3) - 2 * glm::length(e1)*glm::length(e3)*glm::cos(theta1 + theta2));
+
+		spring_length.insert(make_pair(make_pair(ite2->second, k), length));
+		return;
+	}
 
 	mat.insert(make_pair(make_pair(i,j),k));
 
@@ -42,7 +76,7 @@ bool Springs::exist(const vector<unsigned int>& array, const unsigned int val)
 		return true;
 }
 
-Springs::Springs(Obj* cloth): NUM_NEIGH1(sim_parameter.NUM_NEIGH1),NUM_NEIGH2(sim_parameter.NUM_NEIGH2),spring_obj(cloth)
+Springs::Springs(Obj* cloth): NUM_NEIGH1(20),NUM_NEIGH2(20),spring_obj(cloth)
 {
 	cout << "build springs" << endl;
 	if (spring_obj->get_obj_type() == SINGLE_LAYER_BOUNDARY)
@@ -51,109 +85,47 @@ Springs::Springs(Obj* cloth): NUM_NEIGH1(sim_parameter.NUM_NEIGH1),NUM_NEIGH2(si
 		get_boundary_boundary_spring();
 	}
 	
-
-	//create neigh1 for each vertex
-	neigh1.resize(cloth->uni_vertices.size());
-	for(int i=0;i<cloth->faces.size();i++)
-	{
-		unsigned int f[3];
-		for(int j=0;j<3;j++)
-		{
-			f[j] = cloth->faces[i].vertex_index[j];
-		}
-		if(!exist(neigh1[f[0]],f[1]))   //去掉neighbour中重复的邻接点
-			neigh1[f[0]].push_back(f[1]);
-		if(!exist(neigh1[f[0]],f[2]))
-			neigh1[f[0]].push_back(f[2]);
-
-		if(!exist(neigh1[f[1]],f[0]))
-			neigh1[f[1]].push_back(f[0]);
-		if(!exist(neigh1[f[1]],f[2]))
-			neigh1[f[1]].push_back(f[2]);
-
-		if(!exist(neigh1[f[2]],f[0]))
-			neigh1[f[2]].push_back(f[0]);
-		if(!exist(neigh1[f[2]],f[1]))
-			neigh1[f[2]].push_back(f[1]);
-	}
-
-	for(int i=0;i<cloth_boundary_springs.size();i++)
-	{
-		unsigned int idx1 = cloth_boundary_springs[i].first;
-		unsigned int idx2 = cloth_boundary_springs[i].second;
-
-		neigh1[idx1].push_back(idx2);
-		neigh1[idx2].push_back(idx1);
-	}
-
-	for(auto spring:boundary)
-		neigh1[spring.first].push_back(spring.second);
-
-	//create neigh2 for each vertex
-	neigh2.resize(cloth->uni_vertices.size());
-	Matrix NR;   //Neighbour Relation
-	vector<pair<unsigned int,unsigned int>> point_inline;  //存储两个共边三角形对角顶点索引
-
-	for(int i=0;i<cloth->faces.size();i++)
-	{
-		unsigned int f[3];
-		for(int j=0;j<3;j++)
-		{
-			f[j] = cloth->faces[i].vertex_index[j];
-		}
-
-		NR.Insert_Matrix(f[0],f[1],f[2],point_inline);
-		NR.Insert_Matrix(f[0],f[2],f[1],point_inline);
-		NR.Insert_Matrix(f[1],f[2],f[0],point_inline);
-	}
-
-	for (int i = 0; i<point_inline.size(); i++) 
-	{
-		unsigned int fir = point_inline[i].first;
-		unsigned int sec = point_inline[i].second;
-
-		neigh2[fir].push_back(sec);
-		neigh2[sec].push_back(fir);
-	}
-	cout << "springs build successfully!" << endl;
-
+	create_neigh();
+	create_neigh_spring();
 	cuda_neigh();  //send data to gpu
+
+	cout << "springs build successfully!" << endl;
 
 }
 
 bool Springs::cuda_neigh()
 {
-	vector<unsigned int> cpu_neigh1(neigh1.size()*NUM_NEIGH1,0);
-	vector<unsigned int> cpu_neigh2(neigh2.size()*NUM_NEIGH2,0);
+	vector<s_spring> cpu_neigh1(neigh1_spring.size()*NUM_NEIGH1);
+	vector<s_spring> cpu_neigh2(neigh2_spring.size()*NUM_NEIGH2);
 
-	for(int i=0;i<neigh1.size();i++)
+	for(int i=0;i<neigh1_spring.size();i++)
 	{
 		int j;
-		for(j=0;j<neigh1[i].size() && j<NUM_NEIGH1;j++)
+		for(j=0;j<neigh1_spring[i].size() && j<NUM_NEIGH1;j++)
 		{
-			cpu_neigh1[i*NUM_NEIGH1+j] = neigh1[i][j];
+			cpu_neigh1[i*NUM_NEIGH1+j] = neigh1_spring[i][j];
 		}
-		if(NUM_NEIGH1>neigh1[i].size())
-			cpu_neigh1[i*NUM_NEIGH1+j] = UINT_MAX;     //sentinel
+		if(NUM_NEIGH1>neigh1_spring[i].size())
+			cpu_neigh1[i*NUM_NEIGH1+j].end = UINT_MAX;     //sentinel
 
 	}
 
-	for(int i=0;i<neigh2.size();i++)
+	for(int i=0;i<neigh2_spring.size();i++)
 	{
 		int j;
-		for(j=0;j<neigh2[i].size() && j<NUM_NEIGH2;j++)
+		for(j=0;j<neigh2_spring[i].size() && j<NUM_NEIGH2;j++)
 		{
-			cpu_neigh2[i*NUM_NEIGH2+j] = neigh2[i][j];
+			cpu_neigh2[i*NUM_NEIGH2+j] = neigh2_spring[i][j];
 		}
-		if(NUM_NEIGH2>neigh2[i].size())
-			cpu_neigh2[i*NUM_NEIGH2+j] = UINT_MAX;     //sentinel
+		if(NUM_NEIGH2>neigh2_spring[i].size())
+			cpu_neigh2[i*NUM_NEIGH2+j].end = UINT_MAX;     //sentinel
 	}
 
 	cudaError_t cudaStatus;
-	cudaStatus = cudaMalloc((void**)&cuda_neigh1, cpu_neigh1.size()*sizeof(unsigned int));	
-	cudaStatus = cudaMalloc((void**)&cuda_neigh2, cpu_neigh2.size()*sizeof(unsigned int));
-	cudaStatus = cudaMemcpy(cuda_neigh1, &cpu_neigh1[0],cpu_neigh1.size()*sizeof(unsigned int), cudaMemcpyHostToDevice);
-	cudaStatus = cudaMemcpy(cuda_neigh2, &cpu_neigh2[0],cpu_neigh2.size()*sizeof(unsigned int), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMalloc((void**)&cuda_neigh1, cpu_neigh1.size()*sizeof(s_spring));
+	cudaStatus = cudaMalloc((void**)&cuda_neigh2, cpu_neigh2.size()*sizeof(s_spring));
+	cudaStatus = cudaMemcpy(cuda_neigh1, &cpu_neigh1[0],cpu_neigh1.size()*sizeof(s_spring), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(cuda_neigh2, &cpu_neigh2[0],cpu_neigh2.size()*sizeof(s_spring), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess)
 	{
 		cout << "error" << cudaGetErrorString(cudaStatus) << endl;
@@ -348,6 +320,107 @@ void Springs::draw()
 			glVertex3f(v1.x, v1.y, v1.z);
 			glVertex3f(v2.x, v2.y, v2.z);
 			glEnd();
+		}
+	}
+}
+
+void Springs::create_neigh()
+{
+
+	//create neigh1 for each vertex
+	neigh1.resize(spring_obj->uni_vertices.size());
+	for (int i = 0; i<spring_obj->faces.size(); i++)
+	{
+		unsigned int f[3];
+		for (int j = 0; j<3; j++)
+		{
+			f[j] = spring_obj->faces[i].vertex_index[j];
+		}
+		if (!exist(neigh1[f[0]], f[1]))   //去掉neighbour中重复的邻接点
+			neigh1[f[0]].push_back(f[1]);
+		if (!exist(neigh1[f[0]], f[2]))
+			neigh1[f[0]].push_back(f[2]);
+
+		if (!exist(neigh1[f[1]], f[0]))
+			neigh1[f[1]].push_back(f[0]);
+		if (!exist(neigh1[f[1]], f[2]))
+			neigh1[f[1]].push_back(f[2]);
+
+		if (!exist(neigh1[f[2]], f[0]))
+			neigh1[f[2]].push_back(f[0]);
+		if (!exist(neigh1[f[2]], f[1]))
+			neigh1[f[2]].push_back(f[1]);
+	}
+
+	for (int i = 0; i<cloth_boundary_springs.size(); i++)
+	{
+		unsigned int idx1 = cloth_boundary_springs[i].first;
+		unsigned int idx2 = cloth_boundary_springs[i].second;
+
+		neigh1[idx1].push_back(idx2);
+		neigh1[idx2].push_back(idx1);
+	}
+
+	for (auto spring : boundary)
+		neigh1[spring.first].push_back(spring.second);
+
+	//create neigh2 for each vertex
+	neigh2.resize(spring_obj->uni_vertices.size());
+	Matrix NR(spring_obj);   //Neighbour Relation
+	vector<pair<unsigned int, unsigned int>> point_inline;  //存储两个共边三角形对角顶点索引
+
+	for (int i = 0; i<spring_obj->faces.size(); i++)
+	{
+		unsigned int f[3];
+		for (int j = 0; j<3; j++)
+		{
+			f[j] = spring_obj->faces[i].vertex_index[j];
+		}
+
+		NR.Insert_Matrix(f[0], f[1], f[2], point_inline, bend_spring_length);
+		NR.Insert_Matrix(f[0], f[2], f[1], point_inline, bend_spring_length);
+		NR.Insert_Matrix(f[1], f[2], f[0], point_inline, bend_spring_length);
+	}
+
+	for (int i = 0; i<point_inline.size(); i++)
+	{
+		unsigned int fir = point_inline[i].first;
+		unsigned int sec = point_inline[i].second;
+
+		neigh2[fir].push_back(sec);
+		neigh2[sec].push_back(fir);
+	}
+
+}
+
+void Springs::create_neigh_spring()
+{
+	neigh1_spring.resize(neigh1.size());
+	for(int i=0;i<neigh1.size();i++)
+	{
+		for (int j = 0; j < neigh1[i].size(); j++)
+		{
+			s_spring tem_spring;
+			tem_spring.end = neigh1[i][j];
+			tem_spring.original = glm::distance(spring_obj->uni_vertices[i],spring_obj->uni_vertices[tem_spring.end]);
+			neigh1_spring[i].push_back(tem_spring);
+		}
+	}
+	
+
+	neigh2_spring.resize(neigh2.size());
+	for (int i = 0; i<neigh2.size(); i++)
+	{
+		for (int j = 0; j < neigh2[i].size(); j++)
+		{
+			s_spring tem_spring;
+			tem_spring.end = neigh2[i][j];
+			if (bend_spring_length.find(make_pair(i, neigh2[i][j])) != bend_spring_length.end())
+				tem_spring.original = bend_spring_length[make_pair(i, neigh2[i][j])];
+			else
+				tem_spring.original = bend_spring_length[make_pair(neigh2[i][j],i)];
+
+			neigh2_spring[i].push_back(tem_spring);
 		}
 	}
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include "load_obj.h"
-#include "parameter.h"
+//#include "parameter.h"
 #include "./bvh/bvh.h"
 #include "spring.h"
 #include <cuda_runtime.h>
@@ -15,7 +15,6 @@ public:
 	CUDA_Simulation(Obj& cloth, Springs& springs);
 	void simulate();
 	void add_bvh(BVHAccel& bvh);
-	//debug
 	void draw_collided_vertex();
 
 private:
@@ -43,8 +42,8 @@ public:
 	glm::vec4* cuda_p_vertex;           //指向OPENGL buffer中vertex的地址
 	glm::vec3* cuda_p_normal;           //指向OPENGL buffer中normal的地址
 
-	unsigned int* cuda_neigh1;  //二维数组转为一维数组
-	unsigned int* cuda_neigh2;
+	s_spring* cuda_neigh1;  //二维数组转为一维数组
+	s_spring* cuda_neigh2;
 
 	BRTreeNode*  d_leaf_nodes;   //for bvh tree
 	BRTreeNode*  d_internal_nodes;
@@ -55,6 +54,15 @@ public:
 	int* collided_vertex;
 	vector<int> cpu_collided_veretx;
 	vector<glm::vec4> updated_vertex;
+
+	//adaptive time-step
+	glm::vec3* d_force;
+	glm::vec3* d_velocity;
+
+	glm::vec3 sum_force;
+	float sum_velocity;
+
+	float dt;   
 
 private:
 	Obj* sim_cloth;
