@@ -66,6 +66,7 @@ private:
 	static glm::vec3 Up, Right, viewDir;
 	static int selected_index;
 	static const int width = 1024, height = 1024;
+	static bool start_sim;
 
 };
 

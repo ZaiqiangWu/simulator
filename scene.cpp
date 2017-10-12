@@ -24,6 +24,7 @@ glm::vec3 Scene::Up = glm::vec3(0, 1, 0),
 int Scene::selected_index = -1;
 static int current_width;
 static int current_height ;
+bool Scene::start_sim = false;
 
 static int num_screenshot = 0;
 GLenum GL_MODE = GL_LINE_LOOP;
@@ -205,12 +206,10 @@ void Scene::DrawGrid()
 }
 void Scene::RenderGPU_CUDA()
 {
-	if (pscene->simulation)
+	if (pscene->simulation && start_sim)
 	{
 		pscene->simulation->simulate();
 	}
-
-
 	
 
 #ifdef _DEBUG
@@ -372,6 +371,8 @@ void Scene::OnKey(unsigned char key, int, int)
 		else
 			GL_MODE = GL_LINE_LOOP;
 		break;
+	case 32:            //space
+		start_sim = !start_sim; break;
 	default:
 		break;
 	}
