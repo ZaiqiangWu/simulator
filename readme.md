@@ -7,7 +7,9 @@ VISGSim is a GPU-based cloth simulator.
 
   - A unified streaming pipeline for time integration and collision handling
   - Unified collision handling: we present a parallel, integrated collision detection and response algorithm - Position projection and inelastic collision response force
-  - Parallel bvh(AABB) construction based ray-tracing
+  - A new strategy of expanding bounding box(aabb) for the triangle (caused by our collision detection and response strategy)
+  - Maximizing Parallelism in the construction of BVHs
+
 
 ### Here is a [Demo](https://youtu.be/e-qQirf1UiY).
   - 12367 vertices
