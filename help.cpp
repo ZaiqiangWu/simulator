@@ -30,3 +30,4 @@ void getFPS()
 	}
 	glutSetWindowTitle(info);
 }
+

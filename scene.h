@@ -31,6 +31,7 @@ private:
 	Scene(int argc, char** argv);  //initial
 	inline void check_GL_error();
 	void loadShader();
+	void save_obj(string file, vector<glm::vec3> vertices);
 	
 
 private:
@@ -67,7 +68,7 @@ private:
 	static int selected_index;
 	static const int width = 1024, height = 1024;
 	static bool start_sim;
-
+	static void copy_save();
 };
 
 

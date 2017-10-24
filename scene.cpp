@@ -5,6 +5,7 @@
 #include "wglew.h"
 #include <iostream>
 #include <FreeImage.h>
+#include <fstream> 
 using namespace std;
 
 
@@ -28,6 +29,7 @@ bool Scene::start_sim = false;
 
 static int num_screenshot = 0;
 GLenum GL_MODE = GL_LINE_LOOP;
+bool SAVE_OBJ = false;
 
 Scene* Scene::getInstance(int argc, char** argv)
 {
@@ -373,6 +375,10 @@ void Scene::OnKey(unsigned char key, int, int)
 		break;
 	case 32:            //space
 		start_sim = !start_sim; break;
+	case 'F':
+	case 'f':
+		SAVE_OBJ = true;
+		break;
 	default:
 		break;
 	}
@@ -382,3 +388,14 @@ void Scene::OnKey(unsigned char key, int, int)
 void Scene::OnShutdown()
 {
 }
+
+void Scene::save_obj(string file, vector<glm::vec3> vertices)
+{
+	ofstream outfile(file);
+	for (auto ver : vertices)
+	{
+		outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
+	}
+	outfile.close();
+}
+

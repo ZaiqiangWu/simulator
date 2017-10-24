@@ -15,6 +15,21 @@ public:
 	* \return world space bounding box of the primitive
 	*/
 	BBox get_bbox() const ;
+	__device__ BBox d_get_bbox() const
+	{
+		BBox bbox(d_vertices[v0]);
+		bbox.expand(d_vertices[v1]);
+		bbox.expand(d_vertices[v2]);
+
+		//沿着法线方向适当拓展或收缩三角面片,后期改为点的各自法线方向
+		float depth = 0.01;
+		glm::vec3 n = d_get_normal();
+		bbox.expand(d_vertices[v0] - depth*n);
+		bbox.expand(d_vertices[v1] - depth*n);
+		bbox.expand(d_vertices[v2] - depth*n);
+
+		return bbox;
+	}
 
 	/**
 	* Check if the given point intersects with the primitive, no intersection
@@ -25,6 +40,14 @@ public:
 	bool intersect(const glm::vec3& point) const;
 
 	glm::vec3 get_normal() const;
+	__device__ glm::vec3 d_get_normal() const
+	{
+		glm::vec3 side1, side2, normalface;
+		side1 = d_vertices[v1] - d_vertices[v0];
+		side2 = d_vertices[v2] - d_vertices[v0];
+		normalface = glm::cross(side1, side2);
+		return glm::normalize(normalface);
+	}
 
  __device__
 		bool d_intersect(const glm::vec3& point, float &dist, glm::vec3 &normal) const

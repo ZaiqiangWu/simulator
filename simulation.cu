@@ -5,9 +5,11 @@
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <iostream>
+#include <fstream>
 using namespace std;
 
 extern GLenum GL_MODE;
+extern bool SAVE_OBJ;
 
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face);   //update cloth face normal
 __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_pos_old_in, glm::vec4 * g_pos_out, glm::vec4 * g_pos_old_out,glm::vec4* const_pos,
@@ -100,7 +102,7 @@ void CUDA_Simulation::init_cuda()
 	cpu_collided_veretx.resize(sim_cloth->uni_vertices.size());
 	updated_vertex.resize(sim_cloth->uni_vertices.size());
 #endif
-
+	updated_vertex.resize(sim_cloth->uni_vertices.size());
 	cudaStatus = cudaMalloc((void**)&d_force, sizeof(glm::vec3)*sim_cloth->uni_vertices.size());
 	cudaStatus = cudaMalloc((void**)&d_velocity, sizeof(glm::vec3)*sim_cloth->uni_vertices.size());
 
@@ -205,6 +207,18 @@ void CUDA_Simulation::verlet_cuda()
 	cout << glm::length(sum_force) << "  " << sum_velocity << endl;*/
 	/*if (glm::length(sum_force) < 0.0006)
 		dt = 0.001;*/
+
+	if (SAVE_OBJ)
+	{
+		SAVE_OBJ = false;
+		cudaMemcpy(&updated_vertex[0], cuda_p_vertex, sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
+		ofstream outfile("../tem/cloth.obj");
+		for (auto ver : updated_vertex)
+		{
+			outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
+		}
+		outfile.close();
+	}
 }
 
 void CUDA_Simulation::computeGridSize(unsigned int n, unsigned int blockSize, unsigned int &numBlocks, unsigned int &numThreads)

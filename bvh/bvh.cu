@@ -4,38 +4,93 @@
 #include <iostream>
 #include <algorithm>
 #include <bitset>
-
+#include <thrust/sort.h>
+#include <thrust/execution_policy.h>
 
 using namespace std;
 extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
 extern inline void copyFromGPUtoCPU(void** dst, void* src, int size);
 
-//__global__ void get_bb(int num, int m, Primitive* d_primitives,BBox* d_bb)
-//{
-//	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
-//	if (index >= num)
-//		return;
-//	int div = m / num;
-//	int res = m%num;
-//
-//	/*for (int i = 0; i < div; i++)
-//	{
-//		d_bb[index].expand(d_primitives[i*num + index].d_get_bbox());
-//	}
-//	__syncthreads();
-//
-//	if (index == 0)
-//	{
-//		for (int i = 0; i < num; i++)
-//		{
-//			d_bb[0].expand(d_bb[i]);
-//		}
-//		for (int i = m - res; i < m; i++)
-//		{
-//			d_bb[0].expand(d_primitives[i].d_get_bbox());
-//		}
-//	}*/
-//}
+// Expands a 10-bit integer into 30 bits
+// by inserting 2 zeros after each bit.
+__device__ unsigned int d_expandBits(unsigned int v)
+{
+	v = (v * 0x00010001u) & 0xFF0000FFu;
+	v = (v * 0x00000101u) & 0x0F00F00Fu;
+	v = (v * 0x00000011u) & 0xC30C30C3u;
+	v = (v * 0x00000005u) & 0x49249249u;
+	return v;
+}
+
+// Calculates a 30-bit Morton code for the
+// given 3D point located within the unit cube [0,1].
+__device__ unsigned int d_morton3D(glm::vec3 p)
+{
+	float x = p.x, float y = p.y, float z = p.z;
+	x = min(max(x * 1024.0f, 0.0f), 1023.0f);
+	y = min(max(y * 1024.0f, 0.0f), 1023.0f);
+	z = min(max(z * 1024.0f, 0.0f), 1023.0f);
+	unsigned int xx = d_expandBits((unsigned int)x);
+	unsigned int yy = d_expandBits((unsigned int)y);
+	unsigned int zz = d_expandBits((unsigned int)z);
+	return xx * 4 + yy * 2 + zz;
+}
+
+
+bool d_mortonCompare(const Primitive& p1, const Primitive& p2)
+{
+	return p1.morton_code < p2.morton_code;
+}
+
+__global__ void get_bb(int num, int m, Primitive* d_primitives,BBox* d_bb)
+{
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= num)
+		return;
+	int div = m / num;
+	int res = m%num;
+
+	BBox tem;
+	for (int i = 0; i < div; i++)  //use shared to replace
+	{
+		tem.expand(d_primitives[i*num + index].d_get_bbox());
+	}
+	d_bb[index].expand(tem);
+	__syncthreads();
+
+	if (index == 0)
+	{
+		for (int i = 0; i < num; i++)
+		{
+			d_bb[0].expand(d_bb[i]);
+		}
+		for (int i = m - res; i < m; i++)
+		{
+			d_bb[0].expand(d_primitives[i].d_get_bbox());
+		}
+	}
+
+}
+
+__global__ void get_morton(int num, Primitive* d_primitives, BBox bb)
+{
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= num)
+		return;
+
+	unsigned int morton_code = d_morton3D(bb.getUnitcubePosOf(d_primitives[index].d_get_bbox().centroid()));
+	d_primitives[index].morton_code = morton_code;
+}
+
+__global__ void get_bb_morton(int num, BBox* d_bbox, unsigned int* d_morton, Primitive* d_primitives)
+{
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= num)
+		return;
+
+	d_bbox[index] = d_primitives[index].d_get_bbox();
+	d_morton[index] = d_primitives[index].morton_code;
+}
 
 // Expands a 10-bit integer into 30 bits
 // by inserting 2 zeros after each bit.
@@ -100,43 +155,63 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 
 	// calculate root AABB size
 	watch.start();
-	BBox bb;
+	/*BBox bb;
 	for (size_t i = 0; i < primitives.size(); ++i) {
 		bb.expand(primitives[i].get_bbox());
-	}
-	/*const unsigned int num_threads = 128;
+	}*/
+	const unsigned int num_threads = 128;
 	vector<BBox> c_bb(num_threads);
 	BBox* d_bb;
-	Primitive* d_primitives;
-	copyFromCPUtoGPU((void**)&d_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
+	Primitive* d_tem_primitives;
+	copyFromCPUtoGPU((void**)&d_tem_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
 	copyFromCPUtoGPU((void**)&d_bb, &c_bb[0], sizeof(BBox)*num_threads);
-	get_bb <<<1, num_threads >>> (num_threads, primitives.size(),d_primitives, d_bb);
-	copyFromGPUtoCPU((void**)&c_bb[0],d_bb, sizeof(BBox)*num_threads);
-	BBox bb = c_bb[0];*/
+	get_bb <<<1, num_threads >>> (num_threads, primitives.size(),d_tem_primitives, d_bb);
+	
+	BBox* cc_bb;
+	copyFromGPUtoCPU((void**)&cc_bb, d_bb, sizeof(BBox)*num_threads);
+	BBox bb = cc_bb[0];
+
+	
 	watch.stop();
 	cout << "expand time elapsed: " << watch.elapsed() << "us" << endl;
 
 	watch.restart();
 	// calculate morton code for each primitives
-	for (size_t i = 0; i < primitives.size(); ++i) {
+
+	/*for (size_t i = 0; i < primitives.size(); ++i) {
 		unsigned int morton_code = morton3D(bb.getUnitcubePosOf(primitives[i].get_bbox().centroid()));
 		primitives[i].morton_code = morton_code;
-	}
+	}*/
+	unsigned int numThreads, numBlocks;
+	unsigned int blockSize = 512;
+	unsigned int n = primitives.size();
+	numThreads = min(blockSize, n);
+	numBlocks = (n % numThreads != 0) ? (n / numThreads + 1) : (n / numThreads);
+	get_morton << <numBlocks, numThreads >> > (n,d_tem_primitives,bb);
+	
 	watch.stop();
 	cout << "morton code time elapsed: " << watch.elapsed() << "us" << endl;
 
 	watch.restart();
 	// sort primitives using morton code -> use thrust::sort(parrallel sort)?
-	std::sort(primitives.begin(), primitives.end(), mortonCompare);
+	//std::sort(primitives.begin(), primitives.end(), mortonCompare);
+	cudaMemcpy(&primitives[0], d_tem_primitives, sizeof(Primitive)*primitives.size(), cudaMemcpyDeviceToHost);
+	//thrust::sort(thrust::host, primitives.begin(),primitives.end(), mortonCompare);
+	std::sort(primitives.begin(), primitives.end(), mortonCompare);    //cpu is faster than gpu, are u kidding me?
 	watch.stop();
 	cout << "sort time elapsed: " << watch.elapsed() << "us" << endl;
+
+	cudaFree(d_tem_primitives);
+	cudaFree(d_bb);
+	
+
 
 	watch.restart();
 	//remove duplicates
 	vector<Primitive> new_pri;
-	for (int i = 1; i < primitives.size();i++)
+	for (int i = 1; i < primitives.size(); i++)
 	{
-		new_pri.push_back(primitives[i-1]);
+		new_pri.push_back(primitives[i - 1]);
 		while (primitives[i].morton_code == primitives[i - 1].morton_code)
 		{
 			i++;
@@ -158,22 +233,32 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	//numThreads0 = min(512, n);
 	//numBlocks0 = (n % numThreads0 != 0) ? (n / numThreads0 + 1) : (n / numThreads0);
 	//extract_bboxes_mortonCode << < numBlocks, numThreads >> > (n,);
-	// extract bboxes array
+
+	// extract bboxes array // extract sorted morton code for parallel binary radix tree construction
 	std::vector<BBox> bboxes(primitives.size());
-	for (int i = 0; i < primitives.size(); i++)
+	vector<unsigned int> sorted_morton_codes(primitives.size());
+	/*for (int i = 0; i < primitives.size(); i++)
 	{
 		bboxes[i] = primitives[i].get_bbox();
-	}
-
-
-	// extract sorted morton code for parallel binary radix tree construction
-	vector<unsigned int> sorted_morton_codes(primitives.size());
-	for (size_t i = 0; i < primitives.size(); ++i) {
 		sorted_morton_codes[i] = primitives[i].morton_code;
-	}
+	}*/
 
+	blockSize = 512;
+	n = primitives.size();
+	numThreads = min(blockSize, n);
+	numBlocks = (n % numThreads != 0) ? (n / numThreads + 1) : (n / numThreads);
+	BBox* d_tem_bbox;
+	unsigned int* d_tem_morton;
+	copyFromCPUtoGPU((void**)&d_tem_bbox, &bboxes[0], sizeof(BBox)*primitives.size());  //just cudaMalloc
+	copyFromCPUtoGPU((void**)&d_tem_morton, &sorted_morton_codes[0], sizeof(unsigned int)*primitives.size());
+
+	get_bb_morton << <numBlocks, numThreads >> > (n, d_tem_bbox, d_tem_morton, d_primitives);
+
+	cudaMemcpy(&bboxes[0], d_tem_bbox, sizeof(BBox)*primitives.size(), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&sorted_morton_codes[0], d_tem_morton, sizeof(unsigned int)*primitives.size(), cudaMemcpyDeviceToHost);
 	watch.stop();
 	cout << "others time elapsed: " << watch.elapsed() << "us" << endl;
+
 
 	// delegate the binary radix tree construction process to GPU
 	cout << "start building parallel brtree" << endl;
@@ -196,7 +281,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	builder.freeHostMemory();
 	watch.stop();
 	cout << "free time elapsed: " << watch.elapsed() << "us" << endl;
-	//exit(0);
+
 
 }
 

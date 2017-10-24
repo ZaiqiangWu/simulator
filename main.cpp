@@ -43,10 +43,10 @@ int main(int argc, char** argv)
 	Scene* main_scene = Scene::getInstance(argc, argv); //initialize opengl 
 
 
-	//Obj cloth("../cloth_no_boundary/dress2/dress2_dense.obj",SINGLE_LAYER_NOB);  
-	//cloth.rotation(90, X);   //
-	//cloth.scale_translate(0.24, 0, 1.1, 0.02); 
-	//cloth.unified();
+	Obj cloth("../cloth_no_boundary/dress2/dress2_dense.obj",SINGLE_LAYER_NOB);  
+	cloth.rotation(90, X);   //
+	cloth.scale_translate(0.22, 0, 1.0, 0.02); 
+	cloth.unified();
 
 	//Obj cloth("../cloth_no_boundary/dress3/dress3_dense.obj",SINGLE_LAYER_NOB);  
 	//cloth.rotation(90, X);   
@@ -58,10 +58,10 @@ int main(int argc, char** argv)
 	//cloth.scale_translate(0.25, 0, 1.10, 0.02);
 	//cloth.unified();
 
-	Obj cloth("../cloth_no_boundary/dress-victor/dress-victor_dense.obj", SINGLE_LAYER_NOB);
-	cloth.rotation(90, X);   
-	cloth.scale_translate(0.25, 0, 1.60, 0.02);
-	cloth.unified();
+	//Obj cloth("../cloth_no_boundary/dress-victor/dress-victor_dense.obj", SINGLE_LAYER_NOB);
+	//cloth.rotation(90, X);   
+	//cloth.scale_translate(0.25, 0, 1.60, 0.02);
+	//cloth.unified();
 
 	//Obj cloth("../cloth_no_boundary/robe/robe.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);   //
@@ -104,18 +104,22 @@ int main(int argc, char** argv)
 
 	Springs cuda_spring(&cloth);
 
-	//Obj body("../pose/pose1.obj");
-	//body.scale_translate(0.30, 0, 1.0, 0);
+	Obj body("../pose/male.obj");   //for render
+	body.scale_translate(0.30, 0, 1.0, 0);
+	body.unified();
+
+	//Obj body("../pose/111.obj");   //for render
+	//body.scale_translate(0.30, 0, 1.2, 0.1);
 	//body.unified();
 
-	Obj body("../pose/female.obj");
-	body.scale_translate(0.31, 0, 1.8, 0);
-	body.unified();
+	//Obj body("../pose/female.obj");
+	//body.scale_translate(0.31, 0, 1.8, 0);
+	//body.unified();
 
 	main_scene->add(cloth);
 	main_scene->add(body);
 
-	Obj bvh_body = body;
+	Obj bvh_body = body;   //for bvh consttruction
 	bvh_body.vertex_extend(0.005);  
 	bvh_body.unified();
 

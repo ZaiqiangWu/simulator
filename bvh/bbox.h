@@ -2,7 +2,7 @@
 #include <cuda_runtime.h>
 #include <glm/glm.hpp>
 #include <iostream>
-#define INF_D 100.0
+
 struct BBox
 {
 	glm::vec3 max;		///< max corner of the bounding box
@@ -14,9 +14,10 @@ struct BBox
 	 * The default constructor creates a new bounding box which contains no
 	 * points.
 	 */
+	__host__ __device__
 	BBox() {
-		max = glm::vec3(-INF_D, -INF_D, -INF_D);
-		min = glm::vec3(INF_D, INF_D, INF_D);
+		max = glm::vec3(-100.0, -100.0, -100.0);
+		min = glm::vec3(100.0, 100.0, 100.0);
 		extent = max - min;
 	}
 
@@ -24,6 +25,7 @@ struct BBox
 	* Constructor.
 	* Creates a bounding box that includes a single point.
 	*/
+	__host__ __device__
 	BBox(const glm::vec3& p) : min(p), max(p) { extent = max - min; }
 
 	/**
@@ -32,6 +34,7 @@ struct BBox
 	* \param min the min corner
 	* \param max the max corner
 	*/
+	__host__ __device__
 	BBox(const glm::vec3& min, const glm::vec3& max) :
 		min(min), max(max) {
 		extent = max - min;
@@ -41,6 +44,7 @@ struct BBox
 	* Constructor.
 	* Creates a bounding box with given bounds (component wise).
 	*/
+	__host__ __device__
 	BBox(const double minX, const double minY, const double minZ,
 		const double maxX, const double maxY, const double maxZ) {
 		min = glm::vec3(minX, minY, minZ);
@@ -90,6 +94,7 @@ struct BBox
 	*/
 	void draw() const;
 	void print() const;
+	__host__ __device__
 	glm::vec3 centroid() const {
 		glm::vec3 sum = min + max;
 		sum /= 2;
@@ -106,6 +111,7 @@ struct BBox
 	* \return the normalized position in the unit
 	* cube, with x,y,z ranging from [0,1]
 	*/
+	__host__ __device__
 	glm::vec3 getUnitcubePosOf(glm::vec3 pos)
 	{
 		glm::vec3 o2pos = pos - min;
