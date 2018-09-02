@@ -213,10 +213,19 @@ void CUDA_Simulation::verlet_cuda()
 		SAVE_OBJ = false;
 		cudaMemcpy(&updated_vertex[0], cuda_p_vertex, sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
 		ofstream outfile("../tem/cloth.obj");
+
+		outfile << "# vertices" << endl;
 		for (auto ver : updated_vertex)
 		{
 			outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
 		}
+		
+		outfile << "# faces" << endl;
+		for (auto face : sim_cloth->faces)
+		{
+			outfile << "f " << face.vertex_index[0]+1 << " " << face.vertex_index[1]+1 << " " << face.vertex_index[2]+1 << endl;
+		}
+
 		outfile.close();
 	}
 }

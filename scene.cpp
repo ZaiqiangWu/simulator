@@ -145,8 +145,8 @@ void Scene::loadShader()
 	GLfloat lightColor[3] = { 0.8,0.8,0.8 };
 	GLfloat objectColor[3] = { 0.8,0.8,0.8 };
 
-	renderShader.LoadFromFile(GL_VERTEX_SHADER, "shaders/render.vert");
-	renderShader.LoadFromFile(GL_FRAGMENT_SHADER, "shaders/render.frag");
+	renderShader.LoadFromFile(GL_VERTEX_SHADER, "shaders/sh.vert");
+	renderShader.LoadFromFile(GL_FRAGMENT_SHADER, "shaders/sh.frag");
 	renderShader.CreateAndLinkProgram();
 
 	renderShader.Use();
@@ -225,7 +225,7 @@ void Scene::RenderGPU_CUDA()
 void Scene::onRender()
 {
 	getFPS();
-	//glClearColor(1.0, 1.0, 1.0, 1.0);
+	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
 	glTranslatef(0, dy, 0);

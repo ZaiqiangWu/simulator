@@ -327,3 +327,22 @@ void Obj::vertex_extend(float dist)
 		}
 	}
 }
+
+void Obj::save()
+{
+	ofstream outfile("../tem/body.obj");
+
+	outfile << "# vertices" << endl;
+	for (auto ver : uni_vertices)
+	{
+		outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
+	}
+
+	outfile << "# faces" << endl;
+	for (auto face : faces)
+	{
+		outfile << "f " << face.vertex_index[0] + 1 << " " << face.vertex_index[1] + 1 << " " << face.vertex_index[2] + 1 << endl;
+	}
+
+	outfile.close();
+}

@@ -64,7 +64,7 @@ public:
 
 	float dt;   
 
-private:
+public:
 	Obj* sim_cloth;
 
 	vector<unsigned int> vertex_adjface;    //每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志

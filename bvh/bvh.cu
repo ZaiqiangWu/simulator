@@ -173,7 +173,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 
 	
 	watch.stop();
-	cout << "expand time elapsed: " << watch.elapsed() << "us" << endl;
+	//cout << "expand time elapsed: " << watch.elapsed() << "us" << endl;
 
 	watch.restart();
 	// calculate morton code for each primitives
@@ -190,7 +190,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	get_morton << <numBlocks, numThreads >> > (n,d_tem_primitives,bb);
 	
 	watch.stop();
-	cout << "morton code time elapsed: " << watch.elapsed() << "us" << endl;
+	//cout << "morton code time elapsed: " << watch.elapsed() << "us" << endl;
 
 	watch.restart();
 	// sort primitives using morton code -> use thrust::sort(parrallel sort)?
@@ -199,7 +199,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	//thrust::sort(thrust::host, primitives.begin(),primitives.end(), mortonCompare);
 	std::sort(primitives.begin(), primitives.end(), mortonCompare);    //cpu is faster than gpu, are u kidding me?
 	watch.stop();
-	cout << "sort time elapsed: " << watch.elapsed() << "us" << endl;
+	//cout << "sort time elapsed: " << watch.elapsed() << "us" << endl;
 
 	cudaFree(d_tem_primitives);
 	cudaFree(d_bb);
@@ -220,11 +220,11 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	}
 	primitives = new_pri;
 	watch.stop();
-	cout << "remove duplicate time elapsed: " << watch.elapsed() << "us" << endl;
-	cout << "triangle size: " << primitives.size() << endl;
-
+	//cout << "remove duplicate time elapsed: " << watch.elapsed() << "us" << endl;
+	//cout << "triangle size: " << primitives.size() << endl;
 
 	watch.restart();
+	
 	//whether to set h_vertices = NULL before send to gpu?
 	copyFromCPUtoGPU((void**)&d_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
 
@@ -242,7 +242,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 		bboxes[i] = primitives[i].get_bbox();
 		sorted_morton_codes[i] = primitives[i].morton_code;
 	}*/
-
+	
 	blockSize = 512;
 	n = primitives.size();
 	numThreads = min(blockSize, n);
@@ -257,16 +257,16 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	cudaMemcpy(&bboxes[0], d_tem_bbox, sizeof(BBox)*primitives.size(), cudaMemcpyDeviceToHost);
 	cudaMemcpy(&sorted_morton_codes[0], d_tem_morton, sizeof(unsigned int)*primitives.size(), cudaMemcpyDeviceToHost);
 	watch.stop();
-	cout << "others time elapsed: " << watch.elapsed() << "us" << endl;
+	//cout << "others time elapsed: " << watch.elapsed() << "us" << endl;
 
 
 	// delegate the binary radix tree construction process to GPU
-	cout << "start building parallel brtree" << endl;
+	//cout << "start building parallel brtree" << endl;
 	watch.restart();
 	ParallelBRTreeBuilder builder(&sorted_morton_codes[0], &bboxes[0], primitives.size());
 	builder.build();
 	watch.stop();
-	cout << "done with time elapsed: " << watch.elapsed() << "us" << endl;
+	//cout << "done with time elapsed: " << watch.elapsed() << "us" << endl;
 
 	watch.restart();
 	numInternalNode = builder.numInternalNode;
@@ -280,7 +280,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	builder.freeDeviceMemory();
 	builder.freeHostMemory();
 	watch.stop();
-	cout << "free time elapsed: " << watch.elapsed() << "us" << endl;
+	//cout << "free time elapsed: " << watch.elapsed() << "us" << endl;
 
 
 }

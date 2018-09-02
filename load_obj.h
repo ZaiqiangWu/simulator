@@ -35,6 +35,8 @@ public:
 	//沿着NORMAL方向扩展点，不同于SCALE
 	void vertex_extend(float dist);   
 	
+	//save
+	void save();
 
 
 public:
