@@ -3,6 +3,8 @@
 
 VISGSim is a GPU-based cloth simulator.
 
+![Results][/Pic/Fig_1.jpg]
+
 # CONTRIBUTIONS
 
   - A unified streaming pipeline for time integration and collision handling
