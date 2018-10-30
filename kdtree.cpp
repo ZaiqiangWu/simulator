@@ -7,7 +7,6 @@
 #include <math.h>  
 #include "kdtree.h"  
 
-
 #if defined(WIN32) || defined(__WIN32__)  
 #include <malloc.h>  
 #endif  

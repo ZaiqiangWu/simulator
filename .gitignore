@@ -54,6 +54,12 @@
 .TemporaryItems
 .Trashes
 .VolumeIcon.icns
+*.vs
+/simulator/Debug/*
+/simulator/Release/*
+/simulator/x64/*
+/x64/*
+*.nvuser
 
 # Directories potentially created on remote AFP share
 .AppleDB

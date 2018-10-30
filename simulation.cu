@@ -177,37 +177,6 @@ void CUDA_Simulation::verlet_cuda()
 		exit(-1);
 	}
 
-#ifdef _DEBUG
-	cudaMemcpy(&cpu_collided_veretx[0], collided_vertex, sizeof(int)*numParticles, cudaMemcpyDeviceToHost);
-	cudaMemcpy(&updated_vertex[0], cuda_p_vertex, sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
-	cout << "*****collided veretx index************" << endl;
-	for (int i = 0; i < cpu_collided_veretx.size(); i++)
-	{
-		if (cpu_collided_veretx[i] == 1)
-			cout << i << "  ";
-	}
-	cout << endl;
-#endif // DEBUG
-
-	//compute sum_force, sum_velocity;
-	/*vector<glm::vec3> cpu_force(numParticles);
-	vector<glm::vec3> cpu_velocity(numParticles);
-	cudaMemcpy(&cpu_force[0], d_force, sizeof(glm::vec3)*numParticles, cudaMemcpyDeviceToHost);
-	cudaMemcpy(&cpu_velocity[0], d_velocity, sizeof(glm::vec3)*numParticles, cudaMemcpyDeviceToHost);
-
-	sum_force = glm::vec3(0.0);
-	sum_velocity = 0.0;
-	for (int i = 0; i < numParticles; i++)
-	{
-		sum_force += cpu_force[i];
-		sum_velocity += glm::length(cpu_velocity[i]);
-	}
-	sum_force /= numParticles;
-	sum_velocity /= numParticles;
-	cout << glm::length(sum_force) << "  " << sum_velocity << endl;*/
-	/*if (glm::length(sum_force) < 0.0006)
-		dt = 0.001;*/
-
 	if (SAVE_OBJ)
 	{
 		SAVE_OBJ = false;

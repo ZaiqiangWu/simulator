@@ -329,19 +329,6 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 	d_force[index] = force;
 	d_velocity[index] = (pos - pos_old)/dt ;
 
-#ifdef _DEBUG
-	if (collide(leaf_nodes, internal_nodes, primitives, force, pos, pos_old, index, collision_force))
-	{
-		collided_vertex[index] = 1;
-	}
-	else
-	{
-		collided_vertex[index] = 0;
-	}
-#endif
-	
-
-
 	//compute point normal
 	glm::vec3 normal(0.0);
 	int first_face_index = index * NUM_ADJFACE;

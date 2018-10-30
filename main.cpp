@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 	//cloth.scale_translate(0.28, 0,0.9, 0);
 	//cloth.unified();
 
-	Obj cloth("../cloth_no_boundary/tshirt2/tshirt2.obj", SINGLE_LAYER_NOB);
+	Obj cloth("../../cloth/tshirt2/tshirt2.obj", SINGLE_LAYER_NOB);
 	cloth.rotation(90, X);   
 	cloth.rotation(-4, Z);
 	cloth.scale_translate(0.30, 0, 1.98, 0.02);
@@ -196,7 +196,7 @@ int main(int argc, char** argv)
 	//body.scale_translate(0.30, 0, 1.2, 0.1);
 	//body.unified();
 
-	Obj body("../pose/female.obj");
+	Obj body("../../pose/female.obj");
 	body.scale_translate(0.31, 0, 1.8, 0);
 	body.unified();
 	//body.save();
