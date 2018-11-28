@@ -47,84 +47,6 @@ int main(int argc, char** argv)
 	cout << a.get<string>("cloth") << endl;*/
 
 	Scene* main_scene = Scene::getInstance(argc, argv); //initialize opengl 
-	//string cloth_file = a.get<string>("cloth");
-	//Obj cloth(cloth_file, SINGLE_LAYER_NOB);
-
-	//if (cloth_file == "../cloth_no_boundary/dress2/dress2_dense.obj")
-	//{
-	//	cloth.rotation(90, X);   
-	//	cloth.scale_translate(0.22, 0, 1.0, 0.02); 
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/dress2/dress2-iso.obj")
-	//{
-	//	cloth.rotation(90, X);
-	//	cloth.scale_translate(0.22, 0, 1.0, 0.02);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/dress3/dress3_dense.obj")
-	//{
-	//	cloth.rotation(90, X);
-	//	cloth.scale_translate(0.24, 0, 0.9, 0.02); 
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/dress3/dress3.obj")
-	//{
-	//	cloth.rotation(90, X);
-	//	cloth.scale_translate(0.24, 0, 0.9, 0.02);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/dress-asymmetric/dress-asymmetric.obj")
-	//{
-	//	cloth.rotation(90, X);   //
-	//	cloth.scale_translate(0.25, 0, 1.10, 0.02);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/dress-victor/dress-victor_dense.obj")
-	//{
-	//	cloth.rotation(90, X);   
-	//	cloth.scale_translate(0.25, 0, 1.60, 0.02);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/dress-victor/dress-victor.obj")
-	//{
-	//	cloth.rotation(90, X);
-	//	cloth.scale_translate(0.25, 0, 1.60, 0.02);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/robe/robe.obj")
-	//{
-	//	cloth.rotation(90, X);   //
-	//	cloth.scale_translate(0.29, 0, 1.2, 0.02);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/tshirt/tshirt.obj")
-	//{
-	//	cloth.rotation(90, X);
-	//	cloth.rotation(-5, Z);
-	//	cloth.scale_translate(0.29, 0, 2.1, 0.02);
-	//}
-
-	//else if (cloth_file == "../cloth_no_boundary/skirt/skirt.obj")
-	//{
-	//	cloth.rotation(90, X);   
-	//	cloth.scale_translate(0.28, 0,0.9, 0);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/tshirt2/tshirt2.obj")
-	//{
-	//	cloth.rotation(90, X);   
-	//	cloth.rotation(-4, Z);
-	//	cloth.scale_translate(0.30, 0, 1.98, 0.02);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/shorts/shorts.obj")
-	//{
-	//	cloth.rotation(90, X);   //
-	//	cloth.scale_translate(0.29, 0, 0.5, 0);
-	//}
-	//else if (cloth_file == "../cloth_no_boundary/vest/vest.obj")
-	//{
-	//	cloth.rotation(90, X);   
-	//	cloth.scale_translate(0.30, 0, 1.7, 0.02); 
-	//}
-	//else
-	//{
-	//	cout << "file name wrong! input correct file, please!" << endl;
-	//	exit(-1);
-	//}
-	//cloth.unified();
-
 
 	//Obj cloth("../cloth_no_boundary/dress-victor/dress-victor.obj",SINGLE_LAYER_NOB);  
 	//cloth.rotation(90, X);   //
@@ -175,15 +97,6 @@ int main(int argc, char** argv)
 	cloth.unified();
 
 
-	//Obj cloth("../cloth_no_boundary/shorts/shorts.obj", SINGLE_LAYER_NOB);
-	//cloth.rotation(90, X);   //
-	//cloth.scale_translate(0.29, 0, 0.5, 0);
-	//cloth.unified();
-
-	//Obj cloth("../cloth_no_boundary/vest/vest.obj",SINGLE_LAYER_NOB);  
-	//cloth.rotation(90, X);   
-	//cloth.scale_translate(0.30, 0, 1.7, 0.02); 
-	//cloth.unified();
 
 	Springs cuda_spring(&cloth);
 
@@ -213,12 +126,6 @@ int main(int argc, char** argv)
 	vector<Primitive> h_primitives;
 	get_primitives(bvh_body, obj_vertices, h_primitives);
 	BVHAccel cuda_bvh(h_primitives);
-
-#ifdef _DEBUG
-	//cuda_bvh.pre_drawoutline();
-	//main_scene->add(cuda_bvh);
-#endif // DEBUG
-
 
 	CUDA_Simulation simulation(cloth, cuda_spring);   //add(obj)会初始化gpu端数据，simulation需要用到这些数据
 	simulation.add_bvh(cuda_bvh);

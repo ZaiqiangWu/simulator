@@ -182,36 +182,6 @@ __device__ void collision_response_projection(BRTreeNode*  leaf_nodes, BRTreeNod
 
 }
 
-#ifdef _DEBUG
-__device__ bool collide(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,
-	glm::vec3& force, glm::vec3& pos, glm::vec3& pos_old,
-	int idx, glm::vec3* collision_force)
-{
-	int idx_pri;
-	bool inter = intersect(leaf_nodes, internal_nodes, pos, idx_pri);
-	if (inter)
-	{
-		float dist;
-		glm::vec3 normal;
-		if (primitives[idx_pri].d_intersect(pos, dist, normal))
-		{
-			return true;
-		}
-		else
-			return false;
-
-	}
-	else
-		return false;
-}
-
-#endif // _DEBUG
-
-
-
-
-
-
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;

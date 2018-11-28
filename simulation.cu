@@ -96,12 +96,6 @@ void CUDA_Simulation::init_cuda()
 	cuda_neigh1 = cuda_spring->cuda_neigh1;
 	cuda_neigh2 = cuda_spring->cuda_neigh2;
 
-#ifdef _DEBUG
-	cudaMalloc((void**)&collided_vertex, sizeof(int)*sim_cloth->uni_vertices.size());
-	cudaMemset(collided_vertex, 0, sizeof(int)*sim_cloth->uni_vertices.size());
-	cpu_collided_veretx.resize(sim_cloth->uni_vertices.size());
-	updated_vertex.resize(sim_cloth->uni_vertices.size());
-#endif
 	updated_vertex.resize(sim_cloth->uni_vertices.size());
 	cudaStatus = cudaMalloc((void**)&d_force, sizeof(glm::vec3)*sim_cloth->uni_vertices.size());
 	cudaStatus = cudaMalloc((void**)&d_velocity, sizeof(glm::vec3)*sim_cloth->uni_vertices.size());
@@ -223,43 +217,4 @@ void CUDA_Simulation::add_bvh(BVHAccel& bvh)
 	d_leaf_nodes = bvh.d_leaf_nodes;
 	d_internal_nodes = bvh.d_internal_nodes;
 	d_primitives = bvh.d_primitives;
-}
-
-void CUDA_Simulation::draw_collided_vertex()
-{
-
-	//draw outline first
-		for (int i = 0; i < sim_cloth->faces.size(); i++)
-		{
-			glm::vec4 ver[3];
-			glm::vec3 normal[3];
-			for (int j = 0; j < 3; j++)
-			{
-				ver[j] = updated_vertex[sim_cloth->faces[i].vertex_index[j]];
-			}
-			glPointSize(1.0);
-			glBegin(GL_MODE);
-			glColor3f(1.0, 1.0,1.0);
-			for (int j = 0; j < 3; j++)
-			{
-				glVertex3f(ver[j].x, ver[j].y, ver[j].z);
-			}
-				
-			glEnd();
-		}
-
-
-	for (int i = 0; i < cpu_collided_veretx.size(); i++)
-	{
-		glm::vec4 v = updated_vertex[i];
-		if (cpu_collided_veretx[i] == 1)
-		{
-			//draw it
-			glPointSize(10.0);
-			glBegin(GL_POINTS);
-				glColor3f(1.0, 0, 0);
-				glVertex3f(v.x, v.y, v.z);
-			glEnd();
-		}
-	}
 }
