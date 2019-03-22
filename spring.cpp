@@ -31,9 +31,9 @@ void Matrix::Insert_Matrix(
 		v2 = k;
 		v3 = ite1->first.first;
 		v4 = ite1->first.second;
-		glm::vec3 e1 = obj->uni_vertices[v1] - obj->uni_vertices[v3];
-		glm::vec3 e2 = obj->uni_vertices[v4] - obj->uni_vertices[v3];
-		glm::vec3 e3 = obj->uni_vertices[v2] - obj->uni_vertices[v3];
+		glm::vec3 e1 = obj->vertices[v1] - obj->vertices[v3];
+		glm::vec3 e2 = obj->vertices[v4] - obj->vertices[v3];
+		glm::vec3 e3 = obj->vertices[v2] - obj->vertices[v3];
 
 		float theta1 = glm::acos(glm::dot(e1, e2) / (glm::length(e1)*glm::length(e2) + min_float));
 		float theta2 = glm::acos(glm::dot(e3, e2) / (glm::length(e3)*glm::length(e2) + +min_float));
@@ -49,9 +49,9 @@ void Matrix::Insert_Matrix(
 		v2 = k;
 		v3 = ite2->first.first;
 		v4 = ite2->first.second;
-		glm::vec3 e1 = obj->uni_vertices[v1] - obj->uni_vertices[v3];
-		glm::vec3 e2 = obj->uni_vertices[v4] - obj->uni_vertices[v3];
-		glm::vec3 e3 = obj->uni_vertices[v2] - obj->uni_vertices[v3];
+		glm::vec3 e1 = obj->vertices[v1] - obj->vertices[v3];
+		glm::vec3 e2 = obj->vertices[v4] - obj->vertices[v3];
+		glm::vec3 e3 = obj->vertices[v2] - obj->vertices[v3];
 
 		float theta1 = glm::acos(glm::dot(e1, e2) / (glm::length(e1)*glm::length(e2) + min_float));
 		float theta2 = glm::acos(glm::dot(e3, e2) / (glm::length(e3)*glm::length(e2) + min_float));
@@ -76,7 +76,7 @@ bool Springs::exist(const vector<unsigned int>& array, const unsigned int val)
 		return true;
 }
 
-Springs::Springs(ObjLoader* cloth): NUM_NEIGH1(20),NUM_NEIGH2(20),spring_obj(cloth)
+Springs::Springs(Mesh* cloth): NUM_NEIGH1(20),NUM_NEIGH2(20),spring_obj(cloth)
 {
 	cout << "build springs" << endl;
 	if (spring_obj->get_obj_type() == SINGLE_LAYER_BOUNDARY)
@@ -142,7 +142,7 @@ void Springs::get_cloth_boundary_spring()
 	//读入顺序为cloth1,cloth1_boundary,cloth2,cloth2_boundary...
 	
 	int g_start = 0;
-	unsigned int *idx = new unsigned int[spring_obj->uni_vertices.size()]; 
+	unsigned int *idx = new unsigned int[spring_obj->vertices.size()]; 
 	for(int n=0;n<spring_obj->vertex_object.size();n+=2)  
 	{
 		unsigned int group_size = spring_obj->vertex_object[n].second;
@@ -151,9 +151,9 @@ void Springs::get_cloth_boundary_spring()
 		for (int i=0;i<group_size;i++)   //为面片1建立kdtree
 		{
 			idx[i+g_start] = i+g_start;
-			int ret = kd_insert3f(kd, spring_obj->uni_vertices[i+g_start].x,
-				spring_obj->uni_vertices[i+g_start].y,
-				spring_obj->uni_vertices[i+g_start].z,
+			int ret = kd_insert3f(kd, spring_obj->vertices[i+g_start].x,
+				spring_obj->vertices[i+g_start].y,
+				spring_obj->vertices[i+g_start].z,
 				&idx[i+g_start]);
 		}
 		g_start += spring_obj->vertex_object[n].second;
@@ -161,9 +161,9 @@ void Springs::get_cloth_boundary_spring()
 		for (int i=0; i <spring_obj->vertex_object[n+1].second; i++)    //为边界中的点找最邻近点
 		{
 			float kdpos[3];
-			kdres *result = kd_nearest3f(kd, spring_obj->uni_vertices[i+g_start].x,
-				spring_obj->uni_vertices[i+g_start].y,
-				spring_obj->uni_vertices[i+g_start].z);
+			kdres *result = kd_nearest3f(kd, spring_obj->vertices[i+g_start].x,
+				spring_obj->vertices[i+g_start].y,
+				spring_obj->vertices[i+g_start].z);
 			int *resultidx = (int*)kd_res_itemf(result, kdpos);
 			cloth_boundary_springs.push_back(make_pair(i+g_start,*resultidx));
 		}
@@ -184,7 +184,7 @@ void Springs::get_boundary_boundary_spring()
 	{
 		unsigned int idx1 = cloth_boundary_springs[i].first;
 		unsigned int idx2 = cloth_boundary_springs[i].second;
-		max_dist += glm::distance(spring_obj->uni_vertices[idx1],spring_obj->uni_vertices[idx2]);
+		max_dist += glm::distance(spring_obj->vertices[idx1],spring_obj->vertices[idx2]);
 	}
 	max_dist /= NUM;
 	cout << "边界与面片最邻点之间的最大距离：" << max_dist << endl;
@@ -199,7 +199,7 @@ void Springs::get_boundary_boundary_spring()
 		start += spring_obj->vertex_object[n+1].second;
 	}
 
-	int *idx = new int[spring_obj->uni_vertices.size()];
+	int *idx = new int[spring_obj->vertices.size()];
 	for(int i=0;i<start_end.size();i++)
 	{
 		//当前搜索为第i片boundary
@@ -211,9 +211,9 @@ void Springs::get_boundary_boundary_spring()
 			for(int k=start_end[j].first;k<start_end[j].second;k++)
 			{
 				idx[k] = k;
-				int ret = kd_insert3f(kd, spring_obj->uni_vertices[k].x,
-				spring_obj->uni_vertices[k].y,
-				spring_obj->uni_vertices[k].z,
+				int ret = kd_insert3f(kd, spring_obj->vertices[k].x,
+				spring_obj->vertices[k].y,
+				spring_obj->vertices[k].z,
 				&idx[k]);
 			}
 		}
@@ -222,13 +222,13 @@ void Springs::get_boundary_boundary_spring()
 		for(int k=start_end[i].first;k<start_end[i].second;k++)
 		{
 			float kdpos[3];
-			kdres *result = kd_nearest3f(kd, spring_obj->uni_vertices[k].x,
-				spring_obj->uni_vertices[k].y,
-				spring_obj->uni_vertices[k].z);
+			kdres *result = kd_nearest3f(kd, spring_obj->vertices[k].x,
+				spring_obj->vertices[k].y,
+				spring_obj->vertices[k].z);
 			int *resultidx = (int*)kd_res_itemf(result, kdpos);
 
-			if (glm::distance(spring_obj->uni_vertices[k],spring_obj->uni_vertices[*resultidx]) < max_dist*50
-				&& glm::distance(spring_obj->uni_vertices[k],spring_obj->uni_vertices[*resultidx]) > 0) //加入距离判断，防止错连
+			if (glm::distance(spring_obj->vertices[k],spring_obj->vertices[*resultidx]) < max_dist*50
+				&& glm::distance(spring_obj->vertices[k],spring_obj->vertices[*resultidx]) > 0) //加入距离判断，防止错连
 			{
 				boundary_boundary_springs.push_back(make_pair(k,*resultidx));
 			}
@@ -296,10 +296,10 @@ void Springs::draw()
 {
 	for (int i = 0; i < neigh1.size(); i++)
 	{
-		glm::vec4 v1 = spring_obj->uni_vertices[i];
+		glm::vec4 v1 = spring_obj->vertices[i];
 		for (int j = 0; j < neigh1[i].size(); j++)
 		{
-			glm::vec4 v2 = spring_obj->uni_vertices[neigh1[i][j]];
+			glm::vec4 v2 = spring_obj->vertices[neigh1[i][j]];
 	
 			glBegin(GL_LINES);
 			glColor3f(1.0, 1.0, 1.0);
@@ -311,10 +311,10 @@ void Springs::draw()
 
 	for (int i = 0; i < neigh2.size(); i++)
 	{
-		glm::vec4 v1 = spring_obj->uni_vertices[i];
+		glm::vec4 v1 = spring_obj->vertices[i];
 		for (int j = 0; j < neigh2[i].size(); j++)
 		{
-			glm::vec4 v2 = spring_obj->uni_vertices[neigh2[i][j]];
+			glm::vec4 v2 = spring_obj->vertices[neigh2[i][j]];
 			glBegin(GL_LINES);
 			glColor3f(1.0, 0, 0);
 			glVertex3f(v1.x, v1.y, v1.z);
@@ -328,7 +328,7 @@ void Springs::create_neigh()
 {
 
 	//create neigh1 for each vertex
-	neigh1.resize(spring_obj->uni_vertices.size());
+	neigh1.resize(spring_obj->vertices.size());
 	for (int i = 0; i<spring_obj->faces.size(); i++)
 	{
 		unsigned int f[3];
@@ -365,7 +365,7 @@ void Springs::create_neigh()
 		neigh1[spring.first].push_back(spring.second);
 
 	//create neigh2 for each vertex
-	neigh2.resize(spring_obj->uni_vertices.size());
+	neigh2.resize(spring_obj->vertices.size());
 	Matrix NR(spring_obj);   //Neighbour Relation
 	vector<pair<unsigned int, unsigned int>> point_inline;  //存储两个共边三角形对角顶点索引
 
@@ -402,7 +402,7 @@ void Springs::create_neigh_spring()
 		{
 			s_spring tem_spring;
 			tem_spring.end = neigh1[i][j];
-			tem_spring.original = glm::distance(spring_obj->uni_vertices[i],spring_obj->uni_vertices[tem_spring.end]);
+			tem_spring.original = glm::distance(spring_obj->vertices[i],spring_obj->vertices[tem_spring.end]);
 			neigh1_spring[i].push_back(tem_spring);
 		}
 	}

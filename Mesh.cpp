@@ -10,18 +10,22 @@ Mesh::Mesh(ObjLoader& Obj, cloth_type type):mesh_type(type)
 
 void Mesh::unified(ObjLoader& Obj)
 {
+	g_textureID = Obj.g_textureID;
 	vertices = Obj.vertices;
 	tex.resize(vertices.size());
 	normals.resize(vertices.size());
 	faces = Obj.faces;
 	vertex_indices.resize(faces.size() * 3);
 
+	vertex_object = Obj.vertex_object;  //for vertices region division 
+	face_group = Obj.face_group;
+
 	for (int i = 0; i < faces.size(); i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			tex[faces[i].vertex_index[j]] = tex[faces[i].tex_index[j]];
-			normals[faces[i].vertex_index[j]] = normals[faces[i].normal_index[j]];
+			tex[faces[i].vertex_index[j]] = Obj.tex[faces[i].tex_index[j]];
+			normals[faces[i].vertex_index[j]] = Obj.normals[faces[i].normal_index[j]];
 			vertex_indices[i * 3 + j] = faces[i].vertex_index[j];
 		}
 	}

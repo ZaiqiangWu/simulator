@@ -17,6 +17,7 @@ public:
 
 	//save
 	void save();
+	cloth_type get_obj_type();
 
 private:
 	// unify the data, so that one vertex -> one normal -> one texture, 
@@ -24,7 +25,7 @@ private:
 	void unified(ObjLoader& Obj);
 
 	glm::vec3 get_center();
-	cloth_type get_obj_type();
+
 
 public:
 	vector<glm::vec4> vertices;             //unified data
@@ -35,6 +36,9 @@ public:
 
 	GLuint g_textureID;
 	VAO_Buffer vbo;
+
+	vector<pair<string, unsigned int>> vertex_object;  //for vertices region division 
+	vector<pair<string, unsigned int>> face_group;
 
 private:
 	cloth_type mesh_type;
