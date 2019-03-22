@@ -1,5 +1,4 @@
 
-#include "load_obj.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -7,11 +6,13 @@
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 
+#include "ObjLoader.h"
+
 using namespace std;
 
 
 
-Obj::Obj(const string file, cloth_type type):obj_file(file),obj_type(type)
+ObjLoader::ObjLoader(const string file, cloth_type type):obj_file(file),obj_type(type)
 {
 	ifstream input(file);
 	if(!input)
@@ -214,11 +215,11 @@ Obj::Obj(const string file, cloth_type type):obj_file(file),obj_type(type)
 
 }
 
-Obj::~Obj()
+ObjLoader::~ObjLoader()
 {}
 
 
-void Obj::scale_translate(float S, float x_up, float y_up, float z_up)
+void ObjLoader::scale_translate(float S, float x_up, float y_up, float z_up)
 {
 	//获取模型中心坐标
 	glm::vec3 center = get_center();
@@ -232,7 +233,7 @@ void Obj::scale_translate(float S, float x_up, float y_up, float z_up)
 	}
 }
 
-void Obj::unified()
+void ObjLoader::unified()
 {
 	uni_vertices = vertices;
 	uni_tex.resize(uni_vertices.size());
@@ -250,12 +251,12 @@ void Obj::unified()
 	}
 }
 
-cloth_type Obj::get_obj_type()
+cloth_type ObjLoader::get_obj_type()
 {
 	return obj_type;
 }
 
-void Obj::rotation(float angle, direction dir)
+void ObjLoader::rotation(float angle, direction dir)
 {
 	angle = angle / 180 * 3.1415;
 	glm::vec3 center = get_center();
@@ -293,7 +294,7 @@ void Obj::rotation(float angle, direction dir)
 
 }
 
-glm::vec3 Obj::get_center()
+glm::vec3 ObjLoader::get_center()
 {
 	glm::vec3 center;
 	int n = vertices.size();
@@ -310,7 +311,7 @@ glm::vec3 Obj::get_center()
 	return center;
 }
 
-void Obj::vertex_extend(float dist)
+void ObjLoader::vertex_extend(float dist)
 {
 	vector<bool> visited(vertices.size(),false);
 	for (int i = 0; i < faces.size(); i++)
@@ -328,7 +329,7 @@ void Obj::vertex_extend(float dist)
 	}
 }
 
-void Obj::save()
+void ObjLoader::save()
 {
 	ofstream outfile("../tem/body.obj");
 

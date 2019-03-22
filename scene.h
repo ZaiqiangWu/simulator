@@ -2,7 +2,7 @@
 #define GLEW_STATIC
 #include "vao_buffer.h"
 #include "GLSLShader.h"
-#include "load_obj.h"
+#include "ObjLoader.h"
 #include "cuda_simulation.h"
 #include "./bvh//bvh.h"
 #include <GL/freeglut.h>
@@ -17,7 +17,7 @@ class Scene
 public:
 	static Scene* getInstance(int argc, char** argv);
 	~Scene(); //closeFunc() 
-	void add(Obj& object);   //add objects,bind VAOs 
+	void add(ObjLoader& object);   //add objects,bind VAOs 
 	void add(CUDA_Simulation& sim);
 	void add(BVHAccel& bvh);
 	void render();

@@ -1,5 +1,5 @@
 #pragma once
-#include "load_obj.h"
+#include "ObjLoader.h"
 //#include "parameter.h"
 #include "./bvh/bvh.h"
 #include "spring.h"
@@ -12,7 +12,7 @@ class CUDA_Simulation
 public:
 	CUDA_Simulation();
 	~CUDA_Simulation();
-	CUDA_Simulation(Obj& cloth, Springs& springs);
+	CUDA_Simulation(ObjLoader& cloth, Springs& springs);
 	void simulate();
 	void add_bvh(BVHAccel& bvh);
 	void draw_collided_vertex();
@@ -65,7 +65,7 @@ public:
 	float dt;   
 
 public:
-	Obj* sim_cloth;
+	ObjLoader* sim_cloth;
 
 	vector<unsigned int> vertex_adjface;    //每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志
 	unsigned int NUM_ADJFACE; 

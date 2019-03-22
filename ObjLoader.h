@@ -18,12 +18,11 @@ struct Face
 
 enum cloth_type { SINGLE_LAYER_NOB, SINGLE_LAYER_BOUNDARY };
 enum direction {X,Y,Z};
-class Obj
+class ObjLoader
 {
 public:
-	Obj();
-	Obj(const string file,cloth_type type = SINGLE_LAYER_BOUNDARY);
-	~Obj();
+	ObjLoader(const string file,cloth_type type = SINGLE_LAYER_BOUNDARY);
+	~ObjLoader();
 
 	void scale_translate(float S, float x_up, float y_up, float z_up);
 

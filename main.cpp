@@ -1,7 +1,7 @@
 // simulation_bvh.cpp : 定义控制台应用程序的入口点。
 //
 
-#include "load_obj.h"
+#include "ObjLoader.h"
 #include "scene.h"
 #include "spring.h"
 #include "cuda_simulation.h"
@@ -14,7 +14,7 @@ using namespace std;
 extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
 
 
-void get_primitives(Obj& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
+void get_primitives(ObjLoader& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
 {
 	//prepare primitives
 	obj_vertices.resize(body.uni_vertices.size());
@@ -48,49 +48,49 @@ int main(int argc, char** argv)
 
 	Scene* main_scene = Scene::getInstance(argc, argv); //initialize opengl 
 
-	//Obj cloth("../cloth_no_boundary/dress-victor/dress-victor.obj",SINGLE_LAYER_NOB);  
+	//ObjLoader cloth("../cloth_no_boundary/dress-victor/dress-victor.obj",SINGLE_LAYER_NOB);  
 	//cloth.rotation(90, X);   //
 	//cloth.scale_translate(0.22, 0, 1.0, 0.02); 
 	//cloth.unified();
 
-	//Obj cloth("../cloth_no_boundary/dress3/dress3_dense.obj",SINGLE_LAYER_NOB);  
+	//ObjLoader cloth("../cloth_no_boundary/dress3/dress3_dense.obj",SINGLE_LAYER_NOB);  
 	//cloth.rotation(90, X);   
 	//cloth.scale_translate(0.24, 0, 0.9, 0.02); 
 	//cloth.unified();
 
-	//Obj cloth("../cloth_no_boundary/dress-asymmetric/dress-asymmetric.obj", SINGLE_LAYER_NOB);
+	//ObjLoader cloth("../cloth_no_boundary/dress-asymmetric/dress-asymmetric.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);   //
 	//cloth.scale_translate(0.25, 0, 1.10, 0.02);
 	//cloth.unified();
 
-	/*Obj cloth("../cloth_no_boundary/dress-victor/dress-victor.obj", SINGLE_LAYER_NOB);
+	/*ObjLoader cloth("../cloth_no_boundary/dress-victor/dress-victor.obj", SINGLE_LAYER_NOB);
 	cloth.rotation(90, X);   
 	cloth.scale_translate(0.25, 0, 1.60, 0.02);
 	cloth.unified();*/
 
-	//Obj cloth("../cloth_no_boundary/robe/robe.obj", SINGLE_LAYER_NOB);
+	//ObjLoader cloth("../cloth_no_boundary/robe/robe.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);   //
 	//cloth.scale_translate(0.29, 0, 1.2, 0.02);
 	//cloth.unified();
 
-	//Obj cloth("../cloth_no_boundary/tshirt/tshirt.obj", SINGLE_LAYER_NOB);
+	//ObjLoader cloth("../cloth_no_boundary/tshirt/tshirt.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);
 	//cloth.rotation(-5, Z);
 	//cloth.scale_translate(0.29, 0, 2.1, 0.02);
 	//cloth.unified();
 
-	//Obj cloth("../cloth_no_boundary/shirt/shirt.obj", SINGLE_LAYER_NOB);
+	//ObjLoader cloth("../cloth_no_boundary/shirt/shirt.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);   
 	//cloth.rotation(-4, Z);
 	//cloth.scale_translate(0.28, 0, 2.0, 0.02);
 	//cloth.unified();
 
-	//Obj cloth("../cloth_no_boundary/skirt/skirt.obj", SINGLE_LAYER_NOB);
+	//ObjLoader cloth("../cloth_no_boundary/skirt/skirt.obj", SINGLE_LAYER_NOB);
 	//cloth.rotation(90, X);   
 	//cloth.scale_translate(0.28, 0,0.9, 0);
 	//cloth.unified();
 
-	Obj cloth("../../cloth/tshirt2/tshirt2.obj", SINGLE_LAYER_NOB);
+	ObjLoader cloth("../../cloth/tshirt2/tshirt2.obj", SINGLE_LAYER_NOB);
 	cloth.rotation(90, X);   
 	cloth.rotation(-4, Z);
 	cloth.scale_translate(0.30, 0, 1.98, 0.02);
@@ -100,16 +100,16 @@ int main(int argc, char** argv)
 
 	Springs cuda_spring(&cloth);
 
-	//Obj body("../pose/male.obj");   //for render
+	//ObjLoader body("../pose/male.obj");   //for render
 	//body.scale_translate(0.30, 0, 1.0, 0);
 	//body.unified();
 	//body.save();
 
-	//Obj body("../pose/111.obj");   //for render
+	//ObjLoader body("../pose/111.obj");   //for render
 	//body.scale_translate(0.30, 0, 1.2, 0.1);
 	//body.unified();
 
-	Obj body("../../pose/female.obj");
+	ObjLoader body("../../pose/female.obj");
 	body.scale_translate(0.31, 0, 1.8, 0);
 	body.unified();
 	//body.save();
@@ -117,7 +117,7 @@ int main(int argc, char** argv)
 	main_scene->add(cloth);
 	main_scene->add(body);
 
-	Obj bvh_body = body;   //for bvh consttruction
+	ObjLoader bvh_body = body;   //for bvh consttruction
 	bvh_body.vertex_extend(0.003);  
 	bvh_body.unified();
 

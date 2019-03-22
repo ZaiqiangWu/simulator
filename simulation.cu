@@ -1,7 +1,7 @@
 
 #include "cuda_simulation.h"
 #include "spring.h"
-#include "load_obj.h"
+#include "ObjLoader.h"
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <iostream>
@@ -29,7 +29,7 @@ CUDA_Simulation::~CUDA_Simulation()
 	
 }
 
-CUDA_Simulation::CUDA_Simulation(Obj& cloth, Springs& springs):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(20),cuda_spring(&springs),dt(1/20.0)
+CUDA_Simulation::CUDA_Simulation(ObjLoader& cloth, Springs& springs):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(20),cuda_spring(&springs),dt(1/20.0)
 {
 	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, sim_cloth->vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
 	if (cudaStatus != cudaSuccess)

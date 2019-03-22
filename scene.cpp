@@ -87,7 +87,7 @@ void Scene::RenderBuffer(VAO_Buffer vao_buffer)
 	glBindVertexArray(0);	
 	renderShader.UnUse();
 }
-void Scene::add(Obj& object)
+void Scene::add(ObjLoader& object)
 {
 	//add VAOs and Buffers
 	VAO_Buffer tem_vao;

@@ -2,7 +2,7 @@
 #include "bbox.h"
 #include "primitive.h"
 #include "cudaBRT.h"
-#include "../load_obj.h"
+#include "../ObjLoader.h"
 #include <vector> 
 
 

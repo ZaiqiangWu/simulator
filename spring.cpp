@@ -76,7 +76,7 @@ bool Springs::exist(const vector<unsigned int>& array, const unsigned int val)
 		return true;
 }
 
-Springs::Springs(Obj* cloth): NUM_NEIGH1(20),NUM_NEIGH2(20),spring_obj(cloth)
+Springs::Springs(ObjLoader* cloth): NUM_NEIGH1(20),NUM_NEIGH2(20),spring_obj(cloth)
 {
 	cout << "build springs" << endl;
 	if (spring_obj->get_obj_type() == SINGLE_LAYER_BOUNDARY)
