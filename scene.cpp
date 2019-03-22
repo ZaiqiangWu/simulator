@@ -1,11 +1,11 @@
 
 #include "scene.h"
-#include "help.h"
-#include <GL/freeglut.h>
 #include "wglew.h"
 #include <iostream>
 #include <FreeImage.h>
 #include <fstream> 
+
+#include "Utilities.h"
 using namespace std;
 
 

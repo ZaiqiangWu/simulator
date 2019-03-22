@@ -14,25 +14,27 @@ public:
 	void scale_translate(float S, float x_up, float y_up, float z_up);
 	void rotation(float angle, direction dir);
 
-	//沿着NORMAL方向扩展点，不同于SCALE
+	//Extend the vertex in the normal dir, different with scale
 	void vertex_extend(float dist);
 
-	//save
-	void save();
+	// Save as a file
+	void save(string filename);
 	cloth_type get_obj_type();
 
 private:
-	// unify the data, so that one vertex -> one normal -> one texture, 
+	// unify the data, so that one vertex -> one normal -> one texture(simplify the rendering process), 
 	// or error acurred while rendering
 	void unified(ObjLoader& Obj);
 
 	glm::vec3 get_center();
 
-
 public:
-	vector<glm::vec4> vertices;             //unified data
+
+	//unified data
+	vector<glm::vec4> vertices;            
 	vector<glm::vec2> tex;
 	vector<glm::vec3> normals;
+
 	vector<unsigned int> vertex_indices;           // unified the index for render
 	vector<Face> faces;
 

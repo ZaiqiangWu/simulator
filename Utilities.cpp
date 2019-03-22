@@ -1,9 +1,11 @@
-
-#include <GL/freeglut.h>
-#include "help.h"
 #include <time.h>
 #include <string>
 #include <iostream>
+
+#include <GL/freeglut.h>
+
+#include "Utilities.h"
+
 using namespace std;
  
 float startTime = 0;

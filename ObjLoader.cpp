@@ -10,8 +10,6 @@
 
 using namespace std;
 
-
-
 ObjLoader::ObjLoader(const string file):obj_file(file)
 {
 	ifstream input(file);
@@ -215,5 +213,3 @@ ObjLoader::ObjLoader(const string file):obj_file(file)
 
 }
 
-ObjLoader::~ObjLoader()
-{}

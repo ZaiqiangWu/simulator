@@ -1,14 +1,14 @@
 #pragma once
-#include "vao_buffer.h"
-#include <GL/glew.h>
-#include <glm/glm.hpp>
 #include <vector>
 #include <string>
 
+#include <GL/glew.h>
+#include <glm/glm.hpp>
+
+#include "vao_buffer.h"
+
 using namespace std;
 
-
-//just for simulation, no render info
 struct Face
 {
 	unsigned int vertex_index[3];
@@ -20,13 +20,11 @@ class ObjLoader
 {
 public:
 	ObjLoader(const string file);
-	~ObjLoader();
-
 
 public:
 	GLuint g_textureID;
 
-	string obj_file;                  //load from *.obj
+	string obj_file;                
 	string mtl_file;
 	string texture_file;
 

@@ -123,14 +123,14 @@ cloth_type Mesh::get_obj_type()
 	return mesh_type;
 }
 
-void Mesh::save()
+void Mesh::save(string filename)
 {
-	ofstream outfile("../tem/body.obj");
+	ofstream outfile(filename);
 
 	outfile << "# vertices" << endl;
 	for (auto ver : vertices)
 	{
-		outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
+		outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   
 	}
 
 	outfile << "# faces" << endl;

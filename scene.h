@@ -1,13 +1,15 @@
 #pragma once
+
 #define GLEW_STATIC
+#include <GL/glew.h>
+#include <GL/freeglut.h>
+#include <glm/glm.hpp>
+
 #include "vao_buffer.h"
 #include "GLSLShader.h"
 #include "Mesh.h"
 #include "cuda_simulation.h"
-#include "./bvh//bvh.h"
-#include <GL/freeglut.h>
-#include <vector>
-#include <glm/glm.hpp>
+#include "./bvh/bvh.h"
 
 #pragma comment(lib, "glew32s.lib")
 
