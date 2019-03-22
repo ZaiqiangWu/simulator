@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	Scene* main_scene = Scene::getInstance(argc, argv); //initialize opengl 
 
 
-	ObjLoader obj_cloth("../../cloth/tshirt2/tshirt2.obj", SINGLE_LAYER_NOB);
+	ObjLoader obj_cloth("../../cloth/tshirt2/tshirt2.obj");
 	//obj_cloth.unified();
 	Mesh cloth(obj_cloth, SINGLE_LAYER_NOB);
 	cloth.rotation(90, X);   

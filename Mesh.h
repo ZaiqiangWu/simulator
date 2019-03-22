@@ -2,6 +2,8 @@
 
 #include "ObjLoader.h"
 
+enum cloth_type { SINGLE_LAYER_NOB, SINGLE_LAYER_BOUNDARY };
+enum direction { X, Y, Z };
 
 class Mesh
 {
