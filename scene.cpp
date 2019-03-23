@@ -31,7 +31,7 @@ static int num_screenshot = 0;
 GLenum GL_MODE = GL_LINE_LOOP;
 bool SAVE_OBJ = false;
 
-extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
+
 
 Scene* Scene::getInstance(int argc, char** argv)
 {
@@ -40,6 +40,7 @@ Scene* Scene::getInstance(int argc, char** argv)
 
 	return pscene;
 }
+
 Scene::Scene(int argc, char** argv):cloth(nullptr),body(nullptr)
 {
 	glutInit(&argc, argv);
@@ -54,6 +55,64 @@ Scene::Scene(int argc, char** argv):cloth(nullptr),body(nullptr)
 	}
 	wglSwapIntervalEXT(0);  // disable Vertical synchronization
 }
+
+Scene::~Scene()
+{
+
+}
+
+void Scene::add_cloth(Mesh& object)
+{
+	cloth = &object;
+	add(object);
+}
+
+void Scene::add_body(Mesh& object)
+{
+	body = &object;
+	add(object);
+}
+
+void Scene::add(Mesh& object)
+{
+	//add VAOs and Buffers
+	VAO_Buffer tem_vao;
+
+	glGenVertexArrays(1, &tem_vao.vao);
+	glGenBuffers(1, &tem_vao.array_buffer);
+	glGenBuffers(1, &tem_vao.index_buffer);
+	tem_vao.texture = object.g_textureID;
+	tem_vao.index_size = object.vertex_indices.size();
+	check_GL_error();
+
+	glBindVertexArray(tem_vao.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, tem_vao.array_buffer);
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices.size() + sizeof(glm::vec2)*object.tex.size() + sizeof(glm::vec3)*object.normals.size(), NULL, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4)*object.vertices.size(), &object.vertices[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices.size(), sizeof(glm::vec2)*object.tex.size(), &object.tex[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices.size() + sizeof(glm::vec2)*object.tex.size(), sizeof(glm::vec3)*object.normals.size(), &object.normals[0]);
+	check_GL_error();
+
+	glVertexAttribPointer(position, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), 0);
+	glVertexAttribPointer(texture, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (const GLvoid*)(sizeof(glm::vec4)*object.vertices.size()));
+	glVertexAttribPointer(normal, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (const GLvoid*)(sizeof(glm::vec4)*object.vertices.size() + sizeof(glm::vec2)*object.tex.size()));
+
+	glEnableVertexAttribArray(position);
+	glEnableVertexAttribArray(texture);
+	glEnableVertexAttribArray(normal);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tem_vao.index_buffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*object.vertex_indices.size(), &object.vertex_indices[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	glBindVertexArray(0);
+
+	obj_vaos.push_back(tem_vao); // add new vao to the scene
+	object.vbo = tem_vao;
+}
+
 void Scene::render()
 {
 	loadShader(); //InitGL(); //load shader
@@ -89,95 +148,16 @@ void Scene::RenderBuffer(VAO_Buffer vao_buffer)
 	glBindVertexArray(0);	
 	renderShader.UnUse();
 }
-void Scene::add(Mesh& object)
-{
-	//add VAOs and Buffers
-	VAO_Buffer tem_vao;
-	
-	glGenVertexArrays(1, &tem_vao.vao);
-	glGenBuffers(1,&tem_vao.array_buffer);
-	glGenBuffers(1,&tem_vao.index_buffer);
-	tem_vao.texture = object.g_textureID;
-	tem_vao.index_size = object.vertex_indices.size();
-	check_GL_error();
-	
-	glBindVertexArray(tem_vao.vao);
-	glBindBuffer(GL_ARRAY_BUFFER, tem_vao.array_buffer);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices.size() + sizeof(glm::vec2)*object.tex.size() + sizeof(glm::vec3)*object.normals.size(), NULL, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4)*object.vertices.size(), &object.vertices[0]);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices.size(), sizeof(glm::vec2)*object.tex.size(), &object.tex[0]);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4)*object.vertices.size() + sizeof(glm::vec2)*object.tex.size(), sizeof(glm::vec3)*object.normals.size(), &object.normals[0]);
-	check_GL_error();
-
-	glVertexAttribPointer(position, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), 0);
-	glVertexAttribPointer(texture, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (const GLvoid*)(sizeof(glm::vec4)*object.vertices.size()));
-	glVertexAttribPointer(normal, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (const GLvoid*)(sizeof(glm::vec4)*object.vertices.size() + sizeof(glm::vec2)*object.tex.size()));
-
-	glEnableVertexAttribArray(position);
-	glEnableVertexAttribArray(texture);
-	glEnableVertexAttribArray(normal);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,tem_vao.index_buffer);  
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*object.vertex_indices.size(), &object.vertex_indices[0], GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-	glBindVertexArray(0);
-
-	obj_vaos.push_back(tem_vao); // add new vao to the scene
-	object.vbo = tem_vao;       
-}
-
-void Scene::add_cloth(Mesh& object)
-{
-	cloth = &object;
-	add(object);
-}
-void Scene::add_body(Mesh& object)
-{
-	body = &object;
-	add(object);
-}
-
-void Scene::simulate()
+void Scene::init_simulation()
 {
 	if (cloth && body)
 	{
-		Mesh bvh_body = *body;   //for bvh consttruction
-		bvh_body.vertex_extend(0.003);
-
-		get_primitives(bvh_body, obj_vertices, h_primitives);
-		cuda_bvh = new BVHAccel(h_primitives);
-
-		simulation = new CUDA_Simulation(*cloth);    //初始化gpu端数据，simulation需要用到这些数据
-		//CUDA_Simulation simulation(cloth);   
-		simulation->add_bvh(*cuda_bvh);
+		simulation = new CUDA_Simulation(*cloth, *body);
 	}
-}
-
-void Scene::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
-{
-	//prepare primitives
-	obj_vertices.resize(body.vertices.size());
-	for (int i = 0; i < body.vertices.size(); i++)
+	else
 	{
-		obj_vertices[i] = glm::vec3(body.vertices[i].x,
-			body.vertices[i].y,
-			body.vertices[i].z);
-	}
-	glm::vec3* d_obj_vertices;
-	copyFromCPUtoGPU((void**)&d_obj_vertices, &obj_vertices[0], sizeof(glm::vec3)*obj_vertices.size());
-	glm::vec3* h_obj_vertices = &obj_vertices[0];
-
-	//create primitives
-	h_primitives.resize(body.vertex_indices.size() / 3);
-	for (int i = 0; i < h_primitives.size(); i++)
-	{
-		Primitive tem_pri(h_obj_vertices, d_obj_vertices, body.vertex_indices[i * 3 + 0],
-			body.vertex_indices[i * 3 + 1],
-			body.vertex_indices[i * 3 + 2]);
-		h_primitives[i] = tem_pri;
+		cout << "check your cloth and body, make sure both ***not*** null!" << endl;
 	}
 }
 
@@ -185,6 +165,7 @@ void Scene::check_GL_error()
 {
 	assert(glGetError() == GL_NO_ERROR);
 }
+
 void Scene::loadShader()
 {
 	//set light
@@ -209,9 +190,15 @@ void Scene::loadShader()
 	check_GL_error();
 	glEnable(GL_DEPTH_TEST);  
 }
-Scene::~Scene()
-{
 
+void Scene::save_obj(string file, vector<glm::vec3> vertices)
+{
+	ofstream outfile(file);
+	for (auto ver : vertices)
+	{
+		outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
+	}
+	outfile.close();
 }
 
 void Scene::screenshot()
@@ -416,13 +403,5 @@ void Scene::OnShutdown()
 {
 }
 
-void Scene::save_obj(string file, vector<glm::vec3> vertices)
-{
-	ofstream outfile(file);
-	for (auto ver : vertices)
-	{
-		outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
-	}
-	outfile.close();
-}
+
 

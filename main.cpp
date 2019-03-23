@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 	main_scene->add_cloth(cloth);
 	main_scene->add_body(body);
 
-	main_scene->simulate();
+	main_scene->init_simulation();
 	main_scene->render();
 
 	return 0;

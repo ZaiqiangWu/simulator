@@ -18,11 +18,11 @@ class Scene
 {
 public:
 	static Scene* getInstance(int argc, char** argv);
-	~Scene(); //closeFunc() 
+	~Scene(); 
 	
 	void add_cloth(Mesh& object);   // mesh(cloth) to be simulated
 	void add_body(Mesh& object);    // mesh(body) to be collided
-	void simulate();               // start cloth simulation
+	void init_simulation();               // construct simualtion
 	void render();
 
 public:
@@ -30,23 +30,20 @@ public:
 	
 private:
 	Scene(int argc, char** argv);  //initial
-	void add(Mesh& object);   //add objects,bind VAOs 
 	void loadShader();
 	void save_obj(string file, vector<glm::vec3> vertices);
-	void RenderBuffer(VAO_Buffer vao_buffer);
 
-	vector<glm::vec3> obj_vertices;
-	void get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives);
+	void add(Mesh& object);   //add objects,bind VAOs 
+	void RenderBuffer(VAO_Buffer vao_buffer);
 
 private:
 	static Scene* pscene;       //pscene points to the Scene(singleton)
+	GLSLShader renderShader;
+	enum attributes { position, texture, normal };
+
 	Mesh* cloth;
 	Mesh* body;
 	CUDA_Simulation* simulation;
-	BVHAccel* cuda_bvh;
-	GLSLShader renderShader;
-	enum attributes { position, texture, normal };
-	vector<Primitive> h_primitives;     // host primitives for cuda_bvh construction
 
 private:
 	static void screenshot();

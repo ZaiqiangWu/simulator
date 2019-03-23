@@ -11,18 +11,19 @@ class CUDA_Simulation
 public:
 	CUDA_Simulation();
 	~CUDA_Simulation();
-	CUDA_Simulation(Mesh& cloth, Springs& springs);
-	CUDA_Simulation(Mesh& cloth);
+	CUDA_Simulation(Mesh& cloth,Mesh& body);
 	void simulate();
 	void add_bvh(BVHAccel& bvh);
 
 private:
+	void init_cloth(Mesh& cloth);
 	void get_vertex_adjface();
 	void init_cuda();
 
 	void verlet_cuda();
 	void computeGridSize(unsigned int n, unsigned int blockSize, unsigned int &numBlocks, unsigned int &numThreads);
 	void swap_buffer();
+	void get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives);
 
 public:
 	int readID, writeID;
@@ -65,6 +66,9 @@ public:
 
 public:
 	Mesh* sim_cloth;
+	vector<glm::vec3> obj_vertices;
+	vector<Primitive> h_primitives;     // host primitives for cuda_bvh construction
+	BVHAccel* cuda_bvh;
 
 	vector<unsigned int> vertex_adjface;    //每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志
 	unsigned int NUM_ADJFACE; 

@@ -11,6 +11,8 @@ using namespace std;
 extern GLenum GL_MODE;
 extern bool SAVE_OBJ;
 
+extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
+
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face);   //update cloth face normal
 __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_pos_old_in, glm::vec4 * g_pos_out, glm::vec4 * g_pos_old_out,glm::vec4* const_pos,
 						s_spring* neigh1, s_spring* neigh2,
@@ -41,17 +43,7 @@ CUDA_Simulation::~CUDA_Simulation()
 	cudaFree(d_velocity);
 }
 
-CUDA_Simulation::CUDA_Simulation(Mesh& cloth, Springs& springs):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(20),cuda_spring(&springs),dt(1/20.0)
-{
-	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, sim_cloth->vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
-	if (cudaStatus != cudaSuccess)
-		fprintf(stderr, "register failed\n");
-
-	get_vertex_adjface();     //必须位于init_cuda前面，否则邻域数据为空
-	init_cuda();              //将相关数据传送GPU
-}
-
-CUDA_Simulation::CUDA_Simulation(Mesh& cloth) :readID(0), writeID(1), sim_cloth(&cloth), NUM_ADJFACE(20), dt(1 / 20.0)
+void CUDA_Simulation::init_cloth(Mesh& cloth)
 {
 	cuda_spring =  new Springs(&cloth);  
 
@@ -61,6 +53,44 @@ CUDA_Simulation::CUDA_Simulation(Mesh& cloth) :readID(0), writeID(1), sim_cloth(
 
 	get_vertex_adjface();     //必须位于init_cuda前面，否则邻域数据为空
 	init_cuda();              //将相关数据传送GPU
+}
+
+CUDA_Simulation::CUDA_Simulation(Mesh& cloth, Mesh& body) :readID(0), writeID(1), sim_cloth(&cloth), NUM_ADJFACE(20), dt(1 / 20.0)
+{
+	init_cloth(cloth);  // initial cloth 
+
+	Mesh bvh_body = body;   //for bvh consttruction
+	bvh_body.vertex_extend(0.003);
+
+	get_primitives(bvh_body, obj_vertices, h_primitives);
+	cuda_bvh = new BVHAccel(h_primitives);
+
+	add_bvh(*cuda_bvh);
+}
+
+void CUDA_Simulation::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
+{
+	//prepare primitives
+	obj_vertices.resize(body.vertices.size());
+	for (int i = 0; i < body.vertices.size(); i++)
+	{
+		obj_vertices[i] = glm::vec3(body.vertices[i].x,
+			body.vertices[i].y,
+			body.vertices[i].z);
+	}
+	glm::vec3* d_obj_vertices;
+	copyFromCPUtoGPU((void**)&d_obj_vertices, &obj_vertices[0], sizeof(glm::vec3)*obj_vertices.size());
+	glm::vec3* h_obj_vertices = &obj_vertices[0];
+
+	//create primitives
+	h_primitives.resize(body.vertex_indices.size() / 3);
+	for (int i = 0; i < h_primitives.size(); i++)
+	{
+		Primitive tem_pri(h_obj_vertices, d_obj_vertices, body.vertex_indices[i * 3 + 0],
+			body.vertex_indices[i * 3 + 1],
+			body.vertex_indices[i * 3 + 2]);
+		h_primitives[i] = tem_pri;
+	}
 }
 
 void CUDA_Simulation::simulate()
