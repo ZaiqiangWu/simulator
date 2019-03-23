@@ -269,6 +269,7 @@ void Scene::onRender()
 	viewDir.z = (float)-modelview[10];
 	Right = glm::cross(viewDir, Up);
 
+	DrawGrid();
 	RenderGPU_CUDA();
 
 	glutSwapBuffers();

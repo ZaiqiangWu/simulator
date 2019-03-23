@@ -17,7 +17,7 @@ public:
 
 private:
 	void init_cloth(Mesh& cloth);
-	void get_vertex_adjface();
+	void get_vertex_adjface(vector<unsigned int>& vertex_adjface);
 	void init_cuda();
 
 	void verlet_cuda();
@@ -39,9 +39,9 @@ public:
 	unsigned int* d_adj_vertex_to_face;       //To compute each point's normal, we need the adjacent face indices of each point  
 	glm::vec3* d_face_normals;        // face(triangle) normal
 
-	cudaGraphicsResource* cuda_vbo_resource;
-	glm::vec4* cuda_p_vertex;           //指向OPENGL buffer中vertex的地址
-	glm::vec3* cuda_p_normal;           //指向OPENGL buffer中normal的地址
+	cudaGraphicsResource* d_vbo_resource;
+	glm::vec4* d_vbo_vertex;           //point to vertex address in the OPENGL buffer
+	glm::vec3* d_vbo_normal;           //point to normal address in the OPENGL buffer
 
 	s_spring* d_adj_structure_spring;  // adjacent structure springs for each vertex 
 	s_spring* d_adj_bend_spring;       // adjacent bend springs for each vertex 
@@ -56,8 +56,6 @@ public:
 	vector<glm::vec3> obj_vertices;
 	vector<Primitive> h_primitives;     // host primitives for cuda_bvh construction
 	BVHAccel* cuda_bvh;
-
-	vector<unsigned int> vertex_adjface;    //每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志
 	unsigned int NUM_PER_VERTEX_ADJ_FACES; 
 };
 

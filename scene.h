@@ -47,7 +47,8 @@ private:
 
 private:
 	static void screenshot();
-	static void DrawGrid();                  // OPENGL场景的各种函数
+	static void DrawGrid();
+    // OPENGL场景的各种函数
 	static void RenderGPU_CUDA();
 	static void onRender();
 	static void OnReshape(int nw, int nh);

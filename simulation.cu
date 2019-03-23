@@ -44,11 +44,10 @@ void Simulator::init_cloth(Mesh& cloth)
 {
 	cuda_spring =  new Springs(&cloth);  
 
-	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, sim_cloth->vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
+	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&d_vbo_resource, sim_cloth->vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
 	if (cudaStatus != cudaSuccess)
 		fprintf(stderr, "register failed\n");
 
-	get_vertex_adjface();     //必须位于init_cuda前面，否则邻域数据为空
 	init_cuda();              //将相关数据传送GPU
 }
 
@@ -93,13 +92,13 @@ void Simulator::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vect
 void Simulator::simulate()
 {
 	size_t num_bytes;
-	cudaError_t cudaStatus = cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
-	cudaStatus = cudaGraphicsResourceGetMappedPointer((void **)&cuda_p_vertex, &num_bytes, cuda_vbo_resource);
-	cuda_p_normal = (glm::vec3*)((float*)cuda_p_vertex + 4 * sim_cloth->vertices.size() + 2 * sim_cloth->tex.size());   // 获取normal位置指针
+	cudaError_t cudaStatus = cudaGraphicsMapResources(1, &d_vbo_resource, 0);
+	cudaStatus = cudaGraphicsResourceGetMappedPointer((void **)&d_vbo_vertex, &num_bytes, d_vbo_resource);
+	d_vbo_normal = (glm::vec3*)((float*)d_vbo_vertex + 4 * sim_cloth->vertices.size() + 2 * sim_cloth->tex.size());   // 获取normal位置指针
 
 	//cuda kernel compute .........
 	verlet_cuda();
-	cudaStatus = cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
+	cudaStatus = cudaGraphicsUnmapResources(1, &d_vbo_resource, 0);
 	swap_buffer();
 }
 
@@ -136,6 +135,8 @@ void Simulator::init_cuda()
 	const unsigned int face_normal_bytes = sizeof(glm::vec3) * sim_cloth->faces.size();    //面的法向量
 	cudaStatus = cudaMalloc((void**)&d_face_normals, face_normal_bytes);
 
+	vector<unsigned int> vertex_adjface;
+	get_vertex_adjface(vertex_adjface);
 	const unsigned int vertex_adjface_bytes = sizeof(unsigned int) * vertex_adjface.size();  //每个点邻接的面的索引
 	cudaStatus = cudaMalloc((void**)&d_adj_vertex_to_face, vertex_adjface_bytes);
 	cudaStatus = cudaMemcpy(d_adj_vertex_to_face, &vertex_adjface[0], vertex_adjface_bytes, cudaMemcpyHostToDevice);
@@ -145,7 +146,7 @@ void Simulator::init_cuda()
 	d_adj_bend_spring = cuda_spring->d_adj_bend_spring;
 }
 
-void Simulator::get_vertex_adjface()
+void Simulator::get_vertex_adjface(vector<unsigned int>& vertex_adjface)
 {
 	vector<vector<unsigned int>> adjaceny(sim_cloth->vertices.size());
 	for(int i=0;i<sim_cloth->faces.size();i++)
@@ -158,6 +159,7 @@ void Simulator::get_vertex_adjface()
 		}
 	}
 
+	// 每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志
 	vertex_adjface.resize(sim_cloth->vertices.size()*NUM_PER_VERTEX_ADJ_FACES);
 	for(int i=0;i<adjaceny.size();i++)
 	{
@@ -188,9 +190,9 @@ void Simulator::verlet_cuda()
 	
 
 	computeGridSize(numParticles, 512, numBlocks, numThreads);
-	verlet <<< numBlocks, numThreads >>>(cuda_p_vertex, x_cur_in,x_last_in, x_cur_out, x_last_out,x_original,
+	verlet <<< numBlocks, numThreads >>>(d_vbo_vertex, x_cur_in,x_last_in, x_cur_out, x_last_out,x_original,
 										d_adj_structure_spring,d_adj_bend_spring,
-										cuda_p_normal,d_adj_vertex_to_face,d_face_normals,
+										d_vbo_normal,d_adj_vertex_to_face,d_face_normals,
 										numParticles,
 										d_leaf_nodes,d_internal_nodes,d_primitives, d_collision_force);
 	// stop the CPU until the kernel has been executed
@@ -213,7 +215,7 @@ void Simulator::save(string file_name)
 {
 	vector<glm::vec4> updated_vertex(1);
 	unsigned int numParticles = sim_cloth->vertices.size();
-	cudaMemcpy(&updated_vertex[0], cuda_p_vertex, sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
+	cudaMemcpy(&updated_vertex[0], d_vbo_vertex, sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
 
 	ofstream outfile(file_name);
 	outfile << "# vertices" << endl;
