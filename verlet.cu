@@ -1,5 +1,4 @@
 
-//#include "parameter.h"
 #include "./bvh/bvh.h"
 #include "spring.h"
 #include <cuda.h>
@@ -258,9 +257,7 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 						s_spring* neigh1, s_spring* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
 					  const unsigned int NUM_VERTICES,
-					BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives, glm::vec3* collision_force,
-					int* collided_vertex,
-					glm::vec3* d_force, glm::vec3* d_velocity, float timestep)
+					BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives, glm::vec3* collision_force)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= NUM_VERTICES)
@@ -294,10 +291,6 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 	pos = pos + pos - pos_old + acc * dt * dt;   
 	pos_old = tmp;
 	collision_response_projection(leaf_nodes, internal_nodes, primitives, force, pos, pos_old, index, collision_force);
-
-	//获取对应点的力+速度
-	d_force[index] = force;
-	d_velocity[index] = (pos - pos_old)/dt ;
 
 	//compute point normal
 	glm::vec3 normal(0.0);

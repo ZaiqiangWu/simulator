@@ -24,11 +24,12 @@ private:
 	void computeGridSize(unsigned int n, unsigned int blockSize, unsigned int &numBlocks, unsigned int &numThreads);
 	void swap_buffer();
 	void get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives);
+	void save(string file_name);
 
 public:
 	int readID, writeID;
 	glm::vec4* const_cuda_pos;      //º∆À„µØª…‘≠≥§
-	glm::vec4* X[2];
+	glm::vec4* x_cur[2];
 	glm::vec4* X_last[2];
 	glm::vec4 * X_in, *X_out;
 	glm::vec4 * X_last_in, *X_last_out;
@@ -49,20 +50,6 @@ public:
 	BRTreeNode*  d_internal_nodes;
 	Primitive* d_primitives;
 	Springs* cuda_spring;
-
-	//debug
-	int* collided_vertex;
-	vector<int> cpu_collided_veretx;
-	vector<glm::vec4> updated_vertex;
-
-	//adaptive time-step
-	glm::vec3* d_force;
-	glm::vec3* d_velocity;
-
-	glm::vec3 sum_force;
-	float sum_velocity;
-
-	float dt;   
 
 public:
 	Mesh* sim_cloth;

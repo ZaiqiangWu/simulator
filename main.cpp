@@ -37,6 +37,7 @@ int main(int argc, char** argv)
 	main_scene->init_simulation();
 	main_scene->render();
 
+	getchar();
 	return 0;
 }
 
