@@ -17,9 +17,9 @@ public:
 
 
 public:
-	unsigned int NUM_ADJFACE;
-	unsigned int NUM_NEIGH1;
-	unsigned int NUM_NEIGH2;
+	unsigned int NUM_PER_VERTEX_ADJ_FACES;
+	unsigned int NUM_PER_VERTEX_SPRING_STRUCT;
+	unsigned int NUM_PER_VERTEX_SPRING_BEND;
 	float damp;
 	float mass;
 	float dt ;

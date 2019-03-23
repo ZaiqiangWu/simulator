@@ -76,7 +76,7 @@ bool Springs::exist(const vector<unsigned int>& array, const unsigned int val)
 		return true;
 }
 
-Springs::Springs(Mesh* cloth): NUM_NEIGH1(20),NUM_NEIGH2(20),spring_obj(cloth)
+Springs::Springs(Mesh* cloth): NUM_PER_VERTEX_SPRING_STRUCT(20),NUM_PER_VERTEX_SPRING_BEND(20),spring_obj(cloth)
 {
 	cout << "build springs" << endl;
 	if (spring_obj->get_obj_type() == SINGLE_LAYER_BOUNDARY)
@@ -95,37 +95,37 @@ Springs::Springs(Mesh* cloth): NUM_NEIGH1(20),NUM_NEIGH2(20),spring_obj(cloth)
 
 bool Springs::cuda_neigh()
 {
-	vector<s_spring> cpu_neigh1(neigh1_spring.size()*NUM_NEIGH1);
-	vector<s_spring> cpu_neigh2(neigh2_spring.size()*NUM_NEIGH2);
+	vector<s_spring> cpu_neigh1(neigh1_spring.size()*NUM_PER_VERTEX_SPRING_STRUCT);
+	vector<s_spring> cpu_neigh2(neigh2_spring.size()*NUM_PER_VERTEX_SPRING_BEND);
 
 	for(int i=0;i<neigh1_spring.size();i++)
 	{
 		int j;
-		for(j=0;j<neigh1_spring[i].size() && j<NUM_NEIGH1;j++)
+		for(j=0;j<neigh1_spring[i].size() && j<NUM_PER_VERTEX_SPRING_STRUCT;j++)
 		{
-			cpu_neigh1[i*NUM_NEIGH1+j] = neigh1_spring[i][j];
+			cpu_neigh1[i*NUM_PER_VERTEX_SPRING_STRUCT+j] = neigh1_spring[i][j];
 		}
-		if(NUM_NEIGH1>neigh1_spring[i].size())
-			cpu_neigh1[i*NUM_NEIGH1+j].end = UINT_MAX;     //sentinel
+		if(NUM_PER_VERTEX_SPRING_STRUCT>neigh1_spring[i].size())
+			cpu_neigh1[i*NUM_PER_VERTEX_SPRING_STRUCT+j].end = UINT_MAX;     //sentinel
 
 	}
 
 	for(int i=0;i<neigh2_spring.size();i++)
 	{
 		int j;
-		for(j=0;j<neigh2_spring[i].size() && j<NUM_NEIGH2;j++)
+		for(j=0;j<neigh2_spring[i].size() && j<NUM_PER_VERTEX_SPRING_BEND;j++)
 		{
-			cpu_neigh2[i*NUM_NEIGH2+j] = neigh2_spring[i][j];
+			cpu_neigh2[i*NUM_PER_VERTEX_SPRING_BEND+j] = neigh2_spring[i][j];
 		}
-		if(NUM_NEIGH2>neigh2_spring[i].size())
-			cpu_neigh2[i*NUM_NEIGH2+j].end = UINT_MAX;     //sentinel
+		if(NUM_PER_VERTEX_SPRING_BEND>neigh2_spring[i].size())
+			cpu_neigh2[i*NUM_PER_VERTEX_SPRING_BEND+j].end = UINT_MAX;     //sentinel
 	}
 
 	cudaError_t cudaStatus;
-	cudaStatus = cudaMalloc((void**)&cuda_neigh1, cpu_neigh1.size()*sizeof(s_spring));
-	cudaStatus = cudaMalloc((void**)&cuda_neigh2, cpu_neigh2.size()*sizeof(s_spring));
-	cudaStatus = cudaMemcpy(cuda_neigh1, &cpu_neigh1[0],cpu_neigh1.size()*sizeof(s_spring), cudaMemcpyHostToDevice);
-	cudaStatus = cudaMemcpy(cuda_neigh2, &cpu_neigh2[0],cpu_neigh2.size()*sizeof(s_spring), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMalloc((void**)&d_adj_structure_spring, cpu_neigh1.size()*sizeof(s_spring));
+	cudaStatus = cudaMalloc((void**)&d_adj_bend_spring, cpu_neigh2.size()*sizeof(s_spring));
+	cudaStatus = cudaMemcpy(d_adj_structure_spring, &cpu_neigh1[0],cpu_neigh1.size()*sizeof(s_spring), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(d_adj_bend_spring, &cpu_neigh2[0],cpu_neigh2.size()*sizeof(s_spring), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess)
 	{
 		cout << "error" << cudaGetErrorString(cudaStatus) << endl;

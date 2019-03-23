@@ -28,23 +28,23 @@ private:
 
 public:
 	int readID, writeID;
-	glm::vec4* const_cuda_pos;      //计算弹簧原长
+	glm::vec4* x_original;      // keep it to compute spring original length
 	glm::vec4* x_cur[2];
-	glm::vec4* X_last[2];
-	glm::vec4 * X_in, *X_out;
-	glm::vec4 * X_last_in, *X_last_out;
+	glm::vec4* x_last[2];
+	glm::vec4 * x_cur_in, *x_cur_out;
+	glm::vec4 *x_last_in, *x_last_out;
 
-	glm::vec3* collision_force;           //碰撞的人体三角形的法向量，如果没有碰撞则为0
-	unsigned int* cuda_vertex_index;    //点的索引
-	unsigned int* cuda_vertex_adjface;       //计算每个点法向量时需要其周围平面的索引
-	glm::vec3* cuda_face_normal;        //面的法向量
+	glm::vec3* d_collision_force;           // store the normal of the face if collided, or set 0.0 if no collision
+	unsigned int* d_adj_face_to_vertex;    // the order like this: f0(v0,v1,v2) -> f1(v0,v1,v2) -> ... ->fn(v0,v1,v2)
+	unsigned int* d_adj_vertex_to_face;       //To compute each point's normal, we need the adjacent face indices of each point  
+	glm::vec3* d_face_normals;        // face(triangle) normal
 
 	cudaGraphicsResource* cuda_vbo_resource;
 	glm::vec4* cuda_p_vertex;           //指向OPENGL buffer中vertex的地址
 	glm::vec3* cuda_p_normal;           //指向OPENGL buffer中normal的地址
 
-	s_spring* cuda_neigh1;  //二维数组转为一维数组
-	s_spring* cuda_neigh2;
+	s_spring* d_adj_structure_spring;  // adjacent structure springs for each vertex 
+	s_spring* d_adj_bend_spring;       // adjacent bend springs for each vertex 
 
 	BRTreeNode*  d_leaf_nodes;   //for bvh tree
 	BRTreeNode*  d_internal_nodes;
@@ -58,6 +58,6 @@ public:
 	BVHAccel* cuda_bvh;
 
 	vector<unsigned int> vertex_adjface;    //每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志
-	unsigned int NUM_ADJFACE; 
+	unsigned int NUM_PER_VERTEX_ADJ_FACES; 
 };
 

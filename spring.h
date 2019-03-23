@@ -35,10 +35,10 @@ public:
 
 
 public:
-	s_spring* cuda_neigh1;  //二维数组转为一维数组
-	s_spring* cuda_neigh2;
-	unsigned int NUM_NEIGH1 ;    //一级邻域的最大数目，若小于NUM_NEIGH1，以MAX_INT结尾
-	unsigned int NUM_NEIGH2 ;    //二级邻域的最大数目，若小于NUM_NEIGH2，以MAX_INT结尾
+	s_spring* d_adj_structure_spring;  //二维数组转为一维数组
+	s_spring* d_adj_bend_spring;
+	unsigned int NUM_PER_VERTEX_SPRING_STRUCT ;    //一级邻域的最大数目，若小于NUM_PER_VERTEX_SPRING_STRUCT，以MAX_INT结尾
+	unsigned int NUM_PER_VERTEX_SPRING_BEND ;    //二级邻域的最大数目，若小于NUM_PER_VERTEX_SPRING_BEND，以MAX_INT结尾
 
 private:
 	vector<pair<unsigned int,unsigned int>> cloth_boundary_springs;   //只包含pair(1,2)

@@ -14,9 +14,9 @@ __device__ float spring_bend = 2.0;
 __device__ float damp = -0.02f; //增加damp avoid trembling
 __device__ float mass = 0.3;
 __device__ float dt =1/40.0f;
-__device__ int NUM_ADJFACE = 20;        //与simulation中的NUM_ADJFACE一致
-__device__ unsigned int NUM_NEIGH1 = 20;  //与spring中的NUM_NEIGH1一致
-__device__ unsigned int NUM_NEIGH2 = 20;  //与spring中的NUM_NEIGH2一致 
+__device__ int NUM_PER_VERTEX_ADJ_FACES = 20;        //与simulation中的NUM_PER_VERTEX_ADJ_FACES一致
+__device__ unsigned int NUM_PER_VERTEX_SPRING_STRUCT = 20;  //与spring中的NUM_PER_VERTEX_SPRING_STRUCT一致
+__device__ unsigned int NUM_PER_VERTEX_SPRING_BEND = 20;  //与spring中的NUM_PER_VERTEX_SPRING_BEND一致 
 
 
 __device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx);
@@ -276,8 +276,8 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 	const glm::vec3 gravity = glm::vec3(0.0f, -0.00981f, 0.0f); //set gravity
 	
 	glm::vec3 force = gravity*mass + vel*damp;
-	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh1, NUM_NEIGH1, pos, vel,spring_structure); //计算一级邻域弹簧力
-	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh2, NUM_NEIGH2, pos, vel,spring_bend); //计算二级邻域弹簧力
+	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh1, NUM_PER_VERTEX_SPRING_STRUCT, pos, vel,spring_structure); //计算一级邻域弹簧力
+	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh2, NUM_PER_VERTEX_SPRING_BEND, pos, vel,spring_bend); //计算二级邻域弹簧力
 	//if (pos.y > 2.5)
 	//	force = glm::vec3(0.0);
 	//verlet integration
@@ -294,8 +294,8 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 
 	//compute point normal
 	glm::vec3 normal(0.0);
-	int first_face_index = index * NUM_ADJFACE;
-	for (int i = first_face_index, time = 0; vertex_adjface[i] <UINT_MAX && time<NUM_ADJFACE; i++, time++)
+	int first_face_index = index * NUM_PER_VERTEX_ADJ_FACES;
+	for (int i = first_face_index, time = 0; vertex_adjface[i] <UINT_MAX && time<NUM_PER_VERTEX_ADJ_FACES; i++, time++)
 	{
 		int findex = vertex_adjface[i];
 		glm::vec3 fnormal = face_normal[findex]; 

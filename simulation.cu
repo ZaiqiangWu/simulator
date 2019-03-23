@@ -18,7 +18,7 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_p
 						s_spring* neigh1, s_spring* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
 					  const unsigned int NUM_VERTICES,
-					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* collision_force);  //verlet intergration
+					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* d_collision_force);  //verlet intergration
 
 Simulator::Simulator()
 {
@@ -29,15 +29,15 @@ Simulator::~Simulator()
 {
 	delete cuda_spring;
 
-	cudaFree(const_cuda_pos);
+	cudaFree(x_original);
 	cudaFree(x_cur[0]);
 	cudaFree(x_cur[1]);
-	cudaFree(X_last[0]);
-	cudaFree(X_last[1]);
-	cudaFree(collision_force);
-	cudaFree(cuda_vertex_index);
-	cudaFree(cuda_vertex_adjface);
-	cudaFree(cuda_face_normal);
+	cudaFree(x_last[0]);
+	cudaFree(x_last[1]);
+	cudaFree(d_collision_force);
+	cudaFree(d_adj_face_to_vertex);
+	cudaFree(d_adj_vertex_to_face);
+	cudaFree(d_face_normals);
 }
 
 void Simulator::init_cloth(Mesh& cloth)
@@ -52,7 +52,7 @@ void Simulator::init_cloth(Mesh& cloth)
 	init_cuda();              //将相关数据传送GPU
 }
 
-Simulator::Simulator(Mesh& cloth, Mesh& body) :readID(0), writeID(1), sim_cloth(&cloth), NUM_ADJFACE(20)
+Simulator::Simulator(Mesh& cloth, Mesh& body) :readID(0), writeID(1), sim_cloth(&cloth), NUM_PER_VERTEX_ADJ_FACES(20)
 {
 	init_cloth(cloth);  // initial cloth 
 
@@ -111,38 +111,38 @@ void Simulator::init_cuda()
 	//将sim_cloth的点的坐标发送到GPU
 	cudaError_t cudaStatus;      
 	const unsigned int vertices_bytes = sizeof(glm::vec4) * sim_cloth->vertices.size();
-	cudaStatus = cudaMalloc((void**)&const_cuda_pos, vertices_bytes); // cloth vertices (const)
+	cudaStatus = cudaMalloc((void**)&x_original, vertices_bytes); // cloth vertices (const)
 	cudaStatus = cudaMalloc((void**)&x_cur[0], vertices_bytes);			 // cloth vertices
 	cudaStatus = cudaMalloc((void**)&x_cur[1], vertices_bytes);			 // cloth vertices
-	cudaStatus = cudaMalloc((void**)&X_last[0], vertices_bytes);	 // cloth old vertices
-	cudaStatus = cudaMalloc((void**)&X_last[1], vertices_bytes);	 // cloth old vertices
-	cudaStatus = cudaMalloc((void**)&collision_force, sizeof(glm::vec3) * sim_cloth->vertices.size());  //collision response force
-	cudaMemset(collision_force, 0, sizeof(glm::vec3) * sim_cloth->vertices.size());    //initilize to 0
+	cudaStatus = cudaMalloc((void**)&x_last[0], vertices_bytes);	 // cloth old vertices
+	cudaStatus = cudaMalloc((void**)&x_last[1], vertices_bytes);	 // cloth old vertices
+	cudaStatus = cudaMalloc((void**)&d_collision_force, sizeof(glm::vec3) * sim_cloth->vertices.size());  //collision response force
+	cudaMemset(d_collision_force, 0, sizeof(glm::vec3) * sim_cloth->vertices.size());    //initilize to 0
 
-	X_in = x_cur[readID];
-	X_out = x_cur[writeID];
-	X_last_in = X_last[readID];
-	X_last_out = X_last[writeID];
+	x_cur_in = x_cur[readID];
+	x_cur_out = x_cur[writeID];
+	x_last_in = x_last[readID];
+	x_last_out = x_last[writeID];
 
-	cudaStatus = cudaMemcpy(const_cuda_pos, &sim_cloth->vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(x_original, &sim_cloth->vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
 	cudaStatus = cudaMemcpy(x_cur[0], &sim_cloth->vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
-	cudaStatus = cudaMemcpy(X_last[0], &sim_cloth->vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(x_last[0], &sim_cloth->vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
 
 	//计算normal所需的数据：每个点邻接的面的索引 + 每个面的3个点的索引 + 以及所有点的索引（虽然OPENGL有该数据）
 	const unsigned int vertices_index_bytes = sizeof(unsigned int) * sim_cloth->vertex_indices.size();       //点的索引
-	cudaStatus = cudaMalloc((void**)&cuda_vertex_index, vertices_index_bytes);	
-	cudaStatus = cudaMemcpy(cuda_vertex_index, &sim_cloth->vertex_indices[0], vertices_index_bytes, cudaMemcpyHostToDevice);
+	cudaStatus = cudaMalloc((void**)&d_adj_face_to_vertex, vertices_index_bytes);	
+	cudaStatus = cudaMemcpy(d_adj_face_to_vertex, &sim_cloth->vertex_indices[0], vertices_index_bytes, cudaMemcpyHostToDevice);
 
 	const unsigned int face_normal_bytes = sizeof(glm::vec3) * sim_cloth->faces.size();    //面的法向量
-	cudaStatus = cudaMalloc((void**)&cuda_face_normal, face_normal_bytes);
+	cudaStatus = cudaMalloc((void**)&d_face_normals, face_normal_bytes);
 
 	const unsigned int vertex_adjface_bytes = sizeof(unsigned int) * vertex_adjface.size();  //每个点邻接的面的索引
-	cudaStatus = cudaMalloc((void**)&cuda_vertex_adjface, vertex_adjface_bytes);
-	cudaStatus = cudaMemcpy(cuda_vertex_adjface, &vertex_adjface[0], vertex_adjface_bytes, cudaMemcpyHostToDevice);
+	cudaStatus = cudaMalloc((void**)&d_adj_vertex_to_face, vertex_adjface_bytes);
+	cudaStatus = cudaMemcpy(d_adj_vertex_to_face, &vertex_adjface[0], vertex_adjface_bytes, cudaMemcpyHostToDevice);
 	
 	//弹簧信息，即两级邻域点信息传送GPU
-	cuda_neigh1 = cuda_spring->cuda_neigh1;
-	cuda_neigh2 = cuda_spring->cuda_neigh2;
+	d_adj_structure_spring = cuda_spring->d_adj_structure_spring;
+	d_adj_bend_spring = cuda_spring->d_adj_bend_spring;
 }
 
 void Simulator::get_vertex_adjface()
@@ -158,16 +158,16 @@ void Simulator::get_vertex_adjface()
 		}
 	}
 
-	vertex_adjface.resize(sim_cloth->vertices.size()*NUM_ADJFACE);
+	vertex_adjface.resize(sim_cloth->vertices.size()*NUM_PER_VERTEX_ADJ_FACES);
 	for(int i=0;i<adjaceny.size();i++)
 	{
 		int j;
-		for(j=0;j<adjaceny[i].size() && j<NUM_ADJFACE;j++)
+		for(j=0;j<adjaceny[i].size() && j<NUM_PER_VERTEX_ADJ_FACES;j++)
 		{
-			vertex_adjface[i*NUM_ADJFACE+j] = adjaceny[i][j];
+			vertex_adjface[i*NUM_PER_VERTEX_ADJ_FACES+j] = adjaceny[i][j];
 		}
-		if(NUM_ADJFACE>adjaceny[i].size())
-			vertex_adjface[i*NUM_ADJFACE+j] = UINT_MAX;                  //Sentinel
+		if(NUM_PER_VERTEX_ADJ_FACES>adjaceny[i].size())
+			vertex_adjface[i*NUM_PER_VERTEX_ADJ_FACES+j] = UINT_MAX;                  //Sentinel
 	}
 }
 
@@ -177,7 +177,7 @@ void Simulator::verlet_cuda()
 	unsigned int numThreads0, numBlocks0;
 	computeGridSize(sim_cloth->faces.size(), 512, numBlocks0, numThreads0);
 	unsigned int cloth_index_size = sim_cloth->vertex_indices.size(); 
-	get_face_normal <<<numBlocks0, numThreads0 >>>(X_in, cuda_vertex_index, cloth_index_size, cuda_face_normal);  
+	get_face_normal <<<numBlocks0, numThreads0 >>>(x_cur_in, d_adj_face_to_vertex, cloth_index_size, d_face_normals);  
 	cudaStatus = cudaDeviceSynchronize();
 	if (cudaStatus != cudaSuccess)
 		fprintf(stderr, "normal cudaDeviceSynchronize returned error code %d after launching addKernel!\n%s\n", cudaStatus, cudaGetErrorString(cudaStatus));
@@ -188,11 +188,11 @@ void Simulator::verlet_cuda()
 	
 
 	computeGridSize(numParticles, 512, numBlocks, numThreads);
-	verlet <<< numBlocks, numThreads >>>(cuda_p_vertex, X_in, X_last_in, X_out, X_last_out,const_cuda_pos,
-										cuda_neigh1,cuda_neigh2,
-										cuda_p_normal,cuda_vertex_adjface,cuda_face_normal,
+	verlet <<< numBlocks, numThreads >>>(cuda_p_vertex, x_cur_in,x_last_in, x_cur_out, x_last_out,x_original,
+										d_adj_structure_spring,d_adj_bend_spring,
+										cuda_p_normal,d_adj_vertex_to_face,d_face_normals,
 										numParticles,
-										d_leaf_nodes,d_internal_nodes,d_primitives, collision_force);
+										d_leaf_nodes,d_internal_nodes,d_primitives, d_collision_force);
 	// stop the CPU until the kernel has been executed
 	cudaStatus = cudaDeviceSynchronize();
 	if (cudaStatus != cudaSuccess)
@@ -243,11 +243,10 @@ void Simulator::swap_buffer()
 	readID = writeID;
 	writeID = tmp;
 
-	X_in = x_cur[readID];
-	X_out = x_cur[writeID];
-	X_last_in = X_last[readID];
-	X_last_out = X_last[writeID];
-
+	x_cur_in = x_cur[readID];
+	x_cur_out = x_cur[writeID];
+	x_last_in = x_last[readID];
+	x_last_out = x_last[writeID];
 }
 
 void Simulator::add_bvh(BVHAccel& bvh)
