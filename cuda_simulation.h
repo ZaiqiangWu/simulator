@@ -1,6 +1,5 @@
 #pragma once
 #include "Mesh.h"
-//#include "parameter.h"
 #include "./bvh/bvh.h"
 #include "spring.h"
 #include <cuda_runtime.h>
@@ -13,9 +12,9 @@ public:
 	CUDA_Simulation();
 	~CUDA_Simulation();
 	CUDA_Simulation(Mesh& cloth, Springs& springs);
+	CUDA_Simulation(Mesh& cloth);
 	void simulate();
 	void add_bvh(BVHAccel& bvh);
-	void draw_collided_vertex();
 
 private:
 	void get_vertex_adjface();

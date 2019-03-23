@@ -49,20 +49,12 @@ int main(int argc, char** argv)
 
 	Scene* main_scene = Scene::getInstance(argc, argv); //initialize opengl 
 
-
-	ObjLoader obj_cloth("../../cloth/tshirt2/tshirt2.obj");
-	//obj_cloth.unified();
-	Mesh cloth(obj_cloth, SINGLE_LAYER_NOB);
+	Mesh cloth("../../cloth/tshirt2/tshirt2.obj", SINGLE_LAYER_NOB);
 	cloth.rotation(90, X);   
 	cloth.rotation(-4, Z);
 	cloth.scale_translate(0.30, 0, 1.98, 0.02);
 
-
-
-	Springs cuda_spring(&cloth);
-
-	ObjLoader obj_body("../../pose/female.obj");
-	Mesh body(obj_body);
+	Mesh body("../../pose/female.obj");
 	body.scale_translate(0.31, 0, 1.8, 0);
 
 	main_scene->add(cloth);
@@ -77,7 +69,7 @@ int main(int argc, char** argv)
 	get_primitives(bvh_body, obj_vertices, h_primitives);
 	BVHAccel cuda_bvh(h_primitives);
 
-	CUDA_Simulation simulation(cloth, cuda_spring);   //add(obj)会初始化gpu端数据，simulation需要用到这些数据
+	CUDA_Simulation simulation(cloth);   //add(obj)会初始化gpu端数据，simulation需要用到这些数据
 	simulation.add_bvh(cuda_bvh);
 	main_scene->add(simulation);
 	main_scene->render();

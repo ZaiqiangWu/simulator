@@ -8,6 +8,12 @@ Mesh::Mesh(ObjLoader& Obj, cloth_type type):mesh_type(type)
 	unified(Obj);
 }
 
+Mesh::Mesh(string file_name, cloth_type type):mesh_type(type)
+{
+	ObjLoader Obj(file_name);
+	unified(Obj);
+}
+
 void Mesh::unified(ObjLoader& Obj)
 {
 	g_textureID = Obj.g_textureID;

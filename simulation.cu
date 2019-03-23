@@ -26,7 +26,19 @@ CUDA_Simulation::CUDA_Simulation()
 
 CUDA_Simulation::~CUDA_Simulation()
 {
-	
+	delete cuda_spring;
+
+	cudaFree(const_cuda_pos);
+	cudaFree(X[0]);
+	cudaFree(X[1]);
+	cudaFree(X_last[0]);
+	cudaFree(X_last[1]);
+	cudaFree(collision_force);
+	cudaFree(cuda_vertex_index);
+	cudaFree(cuda_vertex_adjface);
+	cudaFree(cuda_face_normal);
+	cudaFree(d_force);
+	cudaFree(d_velocity);
 }
 
 CUDA_Simulation::CUDA_Simulation(Mesh& cloth, Springs& springs):readID(0), writeID(1),sim_cloth(&cloth),NUM_ADJFACE(20),cuda_spring(&springs),dt(1/20.0)
@@ -37,9 +49,18 @@ CUDA_Simulation::CUDA_Simulation(Mesh& cloth, Springs& springs):readID(0), write
 
 	get_vertex_adjface();     //必须位于init_cuda前面，否则邻域数据为空
 	init_cuda();              //将相关数据传送GPU
+}
 
+CUDA_Simulation::CUDA_Simulation(Mesh& cloth) :readID(0), writeID(1), sim_cloth(&cloth), NUM_ADJFACE(20), dt(1 / 20.0)
+{
+	cuda_spring =  new Springs(&cloth);  
 
-		
+	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, sim_cloth->vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
+	if (cudaStatus != cudaSuccess)
+		fprintf(stderr, "register failed\n");
+
+	get_vertex_adjface();     //必须位于init_cuda前面，否则邻域数据为空
+	init_cuda();              //将相关数据传送GPU
 }
 
 void CUDA_Simulation::simulate()
@@ -115,15 +136,6 @@ void CUDA_Simulation::get_vertex_adjface()
 		}
 	}
 
-	//test
-	/*for(int i=0;i<10;i++)
-	{
-		for(int j=0;j<adjaceny[i].size();j++)
-			cout << adjaceny[i][j] << "  ";
-		cout << endl;
-		
-	}
-*/
 	vertex_adjface.resize(sim_cloth->vertices.size()*NUM_ADJFACE);
 	for(int i=0;i<adjaceny.size();i++)
 	{
