@@ -6,12 +6,12 @@
 #include <cuda_gl_interop.h>
 
 
-class CUDA_Simulation
+class Simulator
 {
 public:
-	CUDA_Simulation();
-	~CUDA_Simulation();
-	CUDA_Simulation(Mesh& cloth,Mesh& body);
+	Simulator();
+	~Simulator();
+	Simulator(Mesh& cloth,Mesh& body);
 	void simulate();
 	void add_bvh(BVHAccel& bvh);
 

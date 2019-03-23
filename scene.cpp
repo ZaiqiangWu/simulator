@@ -117,6 +117,7 @@ void Scene::render()
 {
 	loadShader(); //InitGL(); //load shader
 
+	glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 	glutDisplayFunc(onRender);
 	glutReshapeFunc(OnReshape);
 	glutIdleFunc(OnIdle);
@@ -153,7 +154,7 @@ void Scene::init_simulation()
 {
 	if (cloth && body)
 	{
-		simulation = new CUDA_Simulation(*cloth, *body);
+		simulation = new Simulator(*cloth, *body);
 	}
 	else
 	{
@@ -401,6 +402,7 @@ void Scene::OnKey(unsigned char key, int, int)
 }
 void Scene::OnShutdown()
 {
+	glutLeaveMainLoop();
 }
 
 

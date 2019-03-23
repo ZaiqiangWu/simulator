@@ -1,5 +1,5 @@
 
-#include "cuda_simulation.h"
+#include "simulator.h"
 #include "spring.h"
 #include "Mesh.h"
 #include <cuda_runtime.h>
@@ -21,12 +21,12 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_p
 					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* collision_force, int* collided_vertex,
 					glm::vec3* d_force,glm::vec3* d_velocity, float timestep);  //verlet intergration
 
-CUDA_Simulation::CUDA_Simulation()
+Simulator::Simulator()
 {
 	
 }
 
-CUDA_Simulation::~CUDA_Simulation()
+Simulator::~Simulator()
 {
 	delete cuda_spring;
 
@@ -43,7 +43,7 @@ CUDA_Simulation::~CUDA_Simulation()
 	cudaFree(d_velocity);
 }
 
-void CUDA_Simulation::init_cloth(Mesh& cloth)
+void Simulator::init_cloth(Mesh& cloth)
 {
 	cuda_spring =  new Springs(&cloth);  
 
@@ -55,7 +55,7 @@ void CUDA_Simulation::init_cloth(Mesh& cloth)
 	init_cuda();              //将相关数据传送GPU
 }
 
-CUDA_Simulation::CUDA_Simulation(Mesh& cloth, Mesh& body) :readID(0), writeID(1), sim_cloth(&cloth), NUM_ADJFACE(20), dt(1 / 20.0)
+Simulator::Simulator(Mesh& cloth, Mesh& body) :readID(0), writeID(1), sim_cloth(&cloth), NUM_ADJFACE(20), dt(1 / 20.0)
 {
 	init_cloth(cloth);  // initial cloth 
 
@@ -68,7 +68,7 @@ CUDA_Simulation::CUDA_Simulation(Mesh& cloth, Mesh& body) :readID(0), writeID(1)
 	add_bvh(*cuda_bvh);
 }
 
-void CUDA_Simulation::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
+void Simulator::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
 {
 	//prepare primitives
 	obj_vertices.resize(body.vertices.size());
@@ -93,7 +93,7 @@ void CUDA_Simulation::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices
 	}
 }
 
-void CUDA_Simulation::simulate()
+void Simulator::simulate()
 {
 	size_t num_bytes;
 	cudaError_t cudaStatus = cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
@@ -106,7 +106,7 @@ void CUDA_Simulation::simulate()
 	swap_buffer();
 }
 
-void CUDA_Simulation::init_cuda()
+void Simulator::init_cuda()
 {
 	size_t heap_size = 256 * 1024 * 1024;  //set heap size, the default is 8M
 	cudaDeviceSetLimit(cudaLimitMallocHeapSize, heap_size);
@@ -153,7 +153,7 @@ void CUDA_Simulation::init_cuda()
 
 }
 
-void CUDA_Simulation::get_vertex_adjface()
+void Simulator::get_vertex_adjface()
 {
 	vector<vector<unsigned int>> adjaceny(sim_cloth->vertices.size());
 	for(int i=0;i<sim_cloth->faces.size();i++)
@@ -179,7 +179,7 @@ void CUDA_Simulation::get_vertex_adjface()
 	}
 }
 
-void CUDA_Simulation::verlet_cuda()
+void Simulator::verlet_cuda()
 {
 	cudaError_t cudaStatus;
 	unsigned int numThreads0, numBlocks0;
@@ -235,13 +235,13 @@ void CUDA_Simulation::verlet_cuda()
 	}
 }
 
-void CUDA_Simulation::computeGridSize(unsigned int n, unsigned int blockSize, unsigned int &numBlocks, unsigned int &numThreads)
+void Simulator::computeGridSize(unsigned int n, unsigned int blockSize, unsigned int &numBlocks, unsigned int &numThreads)
 {
 	numThreads = min(blockSize, n);
 	numBlocks = (n % numThreads != 0) ? (n / numThreads + 1) : (n / numThreads);
 }
 
-void CUDA_Simulation::swap_buffer()
+void Simulator::swap_buffer()
 {
 	int tmp = readID;
 	readID = writeID;
@@ -254,7 +254,7 @@ void CUDA_Simulation::swap_buffer()
 
 }
 
-void CUDA_Simulation::add_bvh(BVHAccel& bvh)
+void Simulator::add_bvh(BVHAccel& bvh)
 {
 	d_leaf_nodes = bvh.d_leaf_nodes;
 	d_internal_nodes = bvh.d_internal_nodes;

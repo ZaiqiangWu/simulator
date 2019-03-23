@@ -5,7 +5,7 @@
 
 #include "scene.h"
 #include "spring.h"
-#include "cuda_simulation.h"
+#include "simulator.h"
 #include "ObjLoader.h"
 #include "./bvh/bvh.h"
 #include "Mesh.h"

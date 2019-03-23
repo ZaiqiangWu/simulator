@@ -8,7 +8,7 @@
 #include "vao_buffer.h"
 #include "GLSLShader.h"
 #include "Mesh.h"
-#include "cuda_simulation.h"
+#include "simulator.h"
 #include "./bvh/bvh.h"
 
 #pragma comment(lib, "glew32s.lib")
@@ -43,7 +43,7 @@ private:
 
 	Mesh* cloth;
 	Mesh* body;
-	CUDA_Simulation* simulation;
+	Simulator* simulation;
 
 private:
 	static void screenshot();
