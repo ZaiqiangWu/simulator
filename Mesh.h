@@ -12,7 +12,8 @@ public:
 	Mesh(ObjLoader& Obj, cloth_type type = SINGLE_LAYER_BOUNDARY);
 	Mesh(string file_name, cloth_type type = SINGLE_LAYER_BOUNDARY);
 
-	void scale_translate(float S, float x_up, float y_up, float z_up);
+	void scale(float s);
+	void translate(float x_up, float y_up, float z_up);
 	void rotation(float angle, direction dir);
 
 	//Extend the vertex in the normal dir, different with scale

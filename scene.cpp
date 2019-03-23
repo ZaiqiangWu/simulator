@@ -31,6 +31,8 @@ static int num_screenshot = 0;
 GLenum GL_MODE = GL_LINE_LOOP;
 bool SAVE_OBJ = false;
 
+extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
+
 Scene* Scene::getInstance(int argc, char** argv)
 {
 	if (pscene == nullptr)
@@ -38,7 +40,7 @@ Scene* Scene::getInstance(int argc, char** argv)
 
 	return pscene;
 }
-Scene::Scene(int argc, char** argv)
+Scene::Scene(int argc, char** argv):cloth(nullptr),body(nullptr)
 {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
@@ -126,14 +128,59 @@ void Scene::add(Mesh& object)
 	obj_vaos.push_back(tem_vao); // add new vao to the scene
 	object.vbo = tem_vao;       
 }
-void Scene::add(CUDA_Simulation& sim)
+
+void Scene::add_cloth(Mesh& object)
 {
-	simulation = &sim;
+	cloth = &object;
+	add(object);
 }
-void Scene::add(BVHAccel& bvh)
+void Scene::add_body(Mesh& object)
 {
-	h_bvh = &bvh;
+	body = &object;
+	add(object);
 }
+
+void Scene::simulate()
+{
+	if (cloth && body)
+	{
+		Mesh bvh_body = *body;   //for bvh consttruction
+		bvh_body.vertex_extend(0.003);
+
+		get_primitives(bvh_body, obj_vertices, h_primitives);
+		cuda_bvh = new BVHAccel(h_primitives);
+
+		simulation = new CUDA_Simulation(*cloth);    //初始化gpu端数据，simulation需要用到这些数据
+		//CUDA_Simulation simulation(cloth);   
+		simulation->add_bvh(*cuda_bvh);
+	}
+}
+
+void Scene::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
+{
+	//prepare primitives
+	obj_vertices.resize(body.vertices.size());
+	for (int i = 0; i < body.vertices.size(); i++)
+	{
+		obj_vertices[i] = glm::vec3(body.vertices[i].x,
+			body.vertices[i].y,
+			body.vertices[i].z);
+	}
+	glm::vec3* d_obj_vertices;
+	copyFromCPUtoGPU((void**)&d_obj_vertices, &obj_vertices[0], sizeof(glm::vec3)*obj_vertices.size());
+	glm::vec3* h_obj_vertices = &obj_vertices[0];
+
+	//create primitives
+	h_primitives.resize(body.vertex_indices.size() / 3);
+	for (int i = 0; i < h_primitives.size(); i++)
+	{
+		Primitive tem_pri(h_obj_vertices, d_obj_vertices, body.vertex_indices[i * 3 + 0],
+			body.vertex_indices[i * 3 + 1],
+			body.vertex_indices[i * 3 + 2]);
+		h_primitives[i] = tem_pri;
+	}
+}
+
 void Scene::check_GL_error()
 {
 	assert(glGetError() == GL_NO_ERROR);

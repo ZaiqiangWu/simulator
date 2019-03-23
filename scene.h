@@ -19,31 +19,34 @@ class Scene
 public:
 	static Scene* getInstance(int argc, char** argv);
 	~Scene(); //closeFunc() 
-	void add(Mesh& object);   //add objects,bind VAOs 
-	void add(CUDA_Simulation& sim);
-	void add(BVHAccel& bvh);
+	
+	void add_cloth(Mesh& object);   // mesh(cloth) to be simulated
+	void add_body(Mesh& object);    // mesh(body) to be collided
+	void simulate();               // start cloth simulation
 	void render();
 
-	void RenderBuffer(VAO_Buffer vao_buffer);
+public:
 	vector<VAO_Buffer> obj_vaos;
 	
-	
-
 private:
 	Scene(int argc, char** argv);  //initial
-	inline void check_GL_error();
+	void add(Mesh& object);   //add objects,bind VAOs 
 	void loadShader();
 	void save_obj(string file, vector<glm::vec3> vertices);
-	
+	void RenderBuffer(VAO_Buffer vao_buffer);
+
+	vector<glm::vec3> obj_vertices;
+	void get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives);
 
 private:
 	static Scene* pscene;       //pscene points to the Scene(singleton)
+	Mesh* cloth;
+	Mesh* body;
 	CUDA_Simulation* simulation;
-	BVHAccel* h_bvh;
+	BVHAccel* cuda_bvh;
 	GLSLShader renderShader;
 	enum attributes { position, texture, normal };
-	
-	
+	vector<Primitive> h_primitives;     // host primitives for cuda_bvh construction
 
 private:
 	static void screenshot();
@@ -56,9 +59,9 @@ private:
 	static void OnMouseDown(int button, int s, int x, int y);
 	static void OnKey(unsigned char key, int, int);
 	static void OnShutdown();
+	inline void check_GL_error();
 
 private:
-
 	static int oldX, oldY;    // OPENGL场景的各种参数declaration
 	static float rX, rY;
 	static int state;

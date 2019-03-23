@@ -37,17 +37,26 @@ void Mesh::unified(ObjLoader& Obj)
 	}
 }
 
-void Mesh::scale_translate(float S, float x_up, float y_up, float z_up)
+void Mesh::scale(float S)
 {
-	//获取模型中心坐标
+	// Get the center of model
 	glm::vec3 center = get_center();
-	//const float up = 1.2;
-	int n = vertices.size();
-	for (int i = 0; i < n; ++i)
+
+	for (int i = 0; i < vertices.size(); ++i)
 	{
-		vertices[i].x = (vertices[i].x - center.x) / S; vertices[i].x += x_up;
-		vertices[i].y = (vertices[i].y - center.y) / S; vertices[i].y += y_up;
-		vertices[i].z = (vertices[i].z - center.z) / S; vertices[i].z += z_up;
+		vertices[i].x = (vertices[i].x - center.x) * S; 
+		vertices[i].y = (vertices[i].y - center.y) * S; 
+		vertices[i].z = (vertices[i].z - center.z) * S; 
+	}
+}
+
+void Mesh::translate(float x_up, float y_up, float z_up)
+{
+	for (int i = 0; i < vertices.size(); ++i)
+	{
+		vertices[i].x += x_up;
+		vertices[i].y += y_up;
+		vertices[i].z += z_up;
 	}
 }
 
