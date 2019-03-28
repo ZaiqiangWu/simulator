@@ -9,6 +9,9 @@
 using namespace std;
 
 
+Mesh* Scene::cloth = nullptr;
+Mesh* Scene::body = nullptr;
+
 // OPENGL场景的各种参数declaration
 Scene* Scene::pscene = nullptr;
 int Scene::oldX = 0, Scene::oldY = 0;
@@ -41,7 +44,7 @@ Scene* Scene::getInstance(int argc, char** argv)
 	return pscene;
 }
 
-Scene::Scene(int argc, char** argv):cloth(nullptr),body(nullptr)
+Scene::Scene(int argc, char** argv)
 {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
@@ -245,7 +248,7 @@ void Scene::RenderGPU_CUDA()
 {
 	if (pscene->simulation && start_sim)
 	{
-		pscene->simulation->simulate();
+		pscene->simulation->simulate(cloth);
 	}
 	
 	for (auto vao : pscene->obj_vaos)

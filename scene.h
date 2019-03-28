@@ -41,8 +41,8 @@ private:
 	GLSLShader renderShader;
 	enum attributes { position, texture, normal };
 
-	Mesh* cloth;
-	Mesh* body;
+	static Mesh* cloth;
+	static Mesh* body;
 	Simulator* simulation;
 
 private:

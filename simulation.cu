@@ -8,11 +8,6 @@
 #include <fstream>
 using namespace std;
 
-extern GLenum GL_MODE;
-extern bool SAVE_OBJ;
-
-extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
-
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face);   //update cloth face normal
 __global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_pos_old_in, glm::vec4 * g_pos_out, glm::vec4 * g_pos_old_out,glm::vec4* const_pos,
 						s_spring* neigh1, s_spring* neigh2,
@@ -37,11 +32,11 @@ Simulator::~Simulator()
 	cudaFree(d_face_normals);
 }
 
-void Simulator::init_cloth(Mesh& cloth)
+void Simulator::init_cloth(Mesh& sim_cloth)
 {
 
 	// \d_vbo_array_resource points to cloth's array buffer  
-	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&d_vbo_array_resource, sim_cloth->vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
+	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&d_vbo_array_resource, sim_cloth.vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
 	if (cudaStatus != cudaSuccess)
 		fprintf(stderr, "register failed\n");
 
@@ -50,55 +45,61 @@ void Simulator::init_cloth(Mesh& cloth)
 	cudaDeviceSetLimit(cudaLimitMallocHeapSize, heap_size);
 
 	// Send the cloth's vertices to GPU
-	const unsigned int vertices_bytes = sizeof(glm::vec4) * sim_cloth->vertices.size();
+	const unsigned int vertices_bytes = sizeof(glm::vec4) * sim_cloth.vertices.size();
 	cudaStatus = cudaMalloc((void**)&x_original, vertices_bytes); // cloth vertices (const)
 	cudaStatus = cudaMalloc((void**)&x_cur[0], vertices_bytes);			 // cloth vertices
 	cudaStatus = cudaMalloc((void**)&x_cur[1], vertices_bytes);			 // cloth vertices
 	cudaStatus = cudaMalloc((void**)&x_last[0], vertices_bytes);	 // cloth old vertices
 	cudaStatus = cudaMalloc((void**)&x_last[1], vertices_bytes);	 // cloth old vertices
-	cudaStatus = cudaMalloc((void**)&d_collision_force, sizeof(glm::vec3) * sim_cloth->vertices.size());  //collision response force
-	cudaMemset(d_collision_force, 0, sizeof(glm::vec3) * sim_cloth->vertices.size());    //initilize to 0
+	cudaStatus = cudaMalloc((void**)&d_collision_force, sizeof(glm::vec3) * sim_cloth.vertices.size());  //collision response force
+	cudaMemset(d_collision_force, 0, sizeof(glm::vec3) * sim_cloth.vertices.size());    //initilize to 0
 
 	x_cur_in = x_cur[readID];
 	x_cur_out = x_cur[writeID];
 	x_last_in = x_last[readID];
 	x_last_out = x_last[writeID];
 
-	cudaStatus = cudaMemcpy(x_original, &sim_cloth->vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
-	cudaStatus = cudaMemcpy(x_cur[0], &sim_cloth->vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
-	cudaStatus = cudaMemcpy(x_last[0], &sim_cloth->vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(x_original, &sim_cloth.vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(x_cur[0], &sim_cloth.vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(x_last[0], &sim_cloth.vertices[0], vertices_bytes, cudaMemcpyHostToDevice);
 
 	//计算normal所需的数据：每个点邻接的面的索引 + 每个面的3个点的索引
 	vector<unsigned int> vertex_adjface;
-	get_vertex_adjface(vertex_adjface);
+	get_vertex_adjface(sim_cloth, vertex_adjface);
 	const unsigned int vertex_adjface_bytes = sizeof(unsigned int) * vertex_adjface.size();  //每个点邻接的面的索引
 	cudaStatus = cudaMalloc((void**)&d_adjface_to_vertex, vertex_adjface_bytes);
 	cudaStatus = cudaMemcpy(d_adjface_to_vertex, &vertex_adjface[0], vertex_adjface_bytes, cudaMemcpyHostToDevice);
 
-	cudaStatus = cudaGraphicsGLRegisterBuffer(&d_vbo_index_resource, sim_cloth->vbo.index_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
+	cudaStatus = cudaGraphicsGLRegisterBuffer(&d_vbo_index_resource, sim_cloth.vbo.index_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
 	if (cudaStatus != cudaSuccess)
 		fprintf(stderr, "register failed\n");
 
-	const unsigned int face_normal_bytes = sizeof(glm::vec3) * sim_cloth->faces.size();    //face normal
+	const unsigned int face_normal_bytes = sizeof(glm::vec3) * sim_cloth.faces.size();    //face normal
 	cudaStatus = cudaMalloc((void**)&d_face_normals, face_normal_bytes);
 
 	// Construct structure and bend springs in GPU
-	Springs d_spring(&cloth);
+	Springs d_spring(&sim_cloth);
 	d_adj_structure_spring = d_spring.d_adj_structure_spring;
 	d_adj_bend_spring = d_spring.d_adj_bend_spring;
 }
 
-Simulator::Simulator(Mesh& cloth, Mesh& body) :readID(0), writeID(1), sim_cloth(&cloth), NUM_PER_VERTEX_ADJ_FACES(20)
+void Simulator::init_bvh(Mesh& body)
 {
-	init_cloth(cloth);  // initial cloth 
-
-	Mesh bvh_body = body;   //for bvh consttruction
+	Mesh bvh_body = body;   // for bvh consttruction
 	bvh_body.vertex_extend(0.003);
 
 	get_primitives(bvh_body, obj_vertices, h_primitives);
-	cuda_bvh = new BVHAccel(h_primitives);
+	BVHAccel* cuda_bvh = new BVHAccel(h_primitives);
 
-	add_bvh(*cuda_bvh);
+	d_leaf_nodes = cuda_bvh->d_leaf_nodes;
+	d_internal_nodes = cuda_bvh->d_internal_nodes;
+	d_primitives = cuda_bvh->d_primitives;
+}
+
+Simulator::Simulator(Mesh& sim_cloth, Mesh& body) :readID(0), writeID(1), NUM_PER_VERTEX_ADJ_FACES(20)
+{
+	init_cloth(sim_cloth); 
+	init_bvh(body);
 }
 
 void Simulator::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
@@ -112,7 +113,8 @@ void Simulator::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vect
 			body.vertices[i].z);
 	}
 	glm::vec3* d_obj_vertices;
-	copyFromCPUtoGPU((void**)&d_obj_vertices, &obj_vertices[0], sizeof(glm::vec3)*obj_vertices.size());
+	cudaMalloc((void**)&d_obj_vertices, sizeof(glm::vec3)*obj_vertices.size());
+	cudaMemcpy(d_obj_vertices, &obj_vertices[0], sizeof(glm::vec3)*obj_vertices.size(), cudaMemcpyHostToDevice);
 	glm::vec3* h_obj_vertices = &obj_vertices[0];
 
 	//create primitives
@@ -126,7 +128,7 @@ void Simulator::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vect
 	}
 }
 
-void Simulator::simulate()
+void Simulator::simulate(Mesh* sim_cloth)
 {
 	size_t num_bytes;
 	glm::vec4* d_vbo_vertex;           //point to vertex address in the OPENGL buffer
@@ -140,29 +142,29 @@ void Simulator::simulate()
 	d_vbo_normal = (glm::vec3*)((float*)d_vbo_vertex + 4 * sim_cloth->vertices.size() + 2 * sim_cloth->tex.size());   // 获取normal位置指针
 
 	//cuda kernel compute .........
-	cuda_get_face_normal(d_adjvertex_to_face);
-	cuda_verlet(d_vbo_vertex, d_vbo_normal);
+	cuda_get_face_normal(sim_cloth, d_adjvertex_to_face);
+	cuda_verlet(sim_cloth, d_vbo_vertex, d_vbo_normal);
 	swap_buffer();
 
 	cudaStatus = cudaGraphicsUnmapResources(1, &d_vbo_index_resource);
 	cudaStatus = cudaGraphicsUnmapResources(1, &d_vbo_array_resource);
 }
 
-void Simulator::get_vertex_adjface(vector<unsigned int>& vertex_adjface)
+void Simulator::get_vertex_adjface(Mesh& sim_cloth, vector<unsigned int>& vertex_adjface)
 {
-	vector<vector<unsigned int>> adjaceny(sim_cloth->vertices.size());
-	for(int i=0;i<sim_cloth->faces.size();i++)
+	vector<vector<unsigned int>> adjaceny(sim_cloth.vertices.size());
+	for(int i=0;i<sim_cloth.faces.size();i++)
 	{
 		unsigned int f[3];
 		for(int j=0;j<3;j++)
 		{
-			f[j] = sim_cloth->faces[i].vertex_index[j];
+			f[j] = sim_cloth.faces[i].vertex_index[j];
 			adjaceny[f[j]].push_back(i);
 		}
 	}
 
 	// 每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志
-	vertex_adjface.resize(sim_cloth->vertices.size()*NUM_PER_VERTEX_ADJ_FACES);
+	vertex_adjface.resize(sim_cloth.vertices.size()*NUM_PER_VERTEX_ADJ_FACES);
 	for(int i=0;i<adjaceny.size();i++)
 	{
 		int j;
@@ -175,7 +177,7 @@ void Simulator::get_vertex_adjface(vector<unsigned int>& vertex_adjface)
 	}
 }
 
-void Simulator::cuda_get_face_normal(unsigned int* d_adjvertex_to_face)
+void Simulator::cuda_get_face_normal(Mesh* sim_cloth,unsigned int* d_adjvertex_to_face)
 {
 	unsigned int numThreads0, numBlocks0;
 	computeGridSize(sim_cloth->faces.size(), 512, numBlocks0, numThreads0);
@@ -187,7 +189,7 @@ void Simulator::cuda_get_face_normal(unsigned int* d_adjvertex_to_face)
 		fprintf(stderr, "normal cudaDeviceSynchronize returned error code %d after launching addKernel!\n%s\n", cudaStatus, cudaGetErrorString(cudaStatus));
 }
 
-void Simulator::cuda_verlet(glm::vec4* d_vbo_vertex, glm::vec3* d_vbo_normal)
+void Simulator::cuda_verlet(Mesh* sim_cloth, glm::vec4* d_vbo_vertex, glm::vec3* d_vbo_normal)
 {
 	unsigned int numThreads, numBlocks;
 	unsigned int numParticles = sim_cloth->vertices.size();
@@ -207,42 +209,36 @@ void Simulator::cuda_verlet(glm::vec4* d_vbo_vertex, glm::vec3* d_vbo_normal)
 			cudaStatus, cudaGetErrorString(cudaStatus));
 		exit(-1);
 	}
-
-	if (SAVE_OBJ)
-	{
-		SAVE_OBJ = false;
-		save("../tem/cloth.obj");
-	}
 }
 
 void Simulator::save(string file_name)
 {
-	vector<glm::vec4> updated_vertex(1);
-	size_t num_bytes;
-	glm::vec4* d_vbo_vertex;           //point to vertex address in the OPENGL buffer
-	unsigned int numParticles = sim_cloth->vertices.size();
-	cudaError_t cudaStatus = cudaGraphicsMapResources(1, &d_vbo_array_resource);
+	//vector<glm::vec4> updated_vertex(1);
+	//size_t num_bytes;
+	//glm::vec4* d_vbo_vertex;           //point to vertex address in the OPENGL buffer
+	//unsigned int numParticles = sim_cloth->vertices.size();
+	//cudaError_t cudaStatus = cudaGraphicsMapResources(1, &d_vbo_array_resource);
 
-	cudaStatus = cudaGraphicsResourceGetMappedPointer((void **)&d_vbo_vertex, &num_bytes, d_vbo_array_resource);
+	//cudaStatus = cudaGraphicsResourceGetMappedPointer((void **)&d_vbo_vertex, &num_bytes, d_vbo_array_resource);
 
-	cudaMemcpy(&updated_vertex[0], d_vbo_vertex, sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
+	//cudaMemcpy(&updated_vertex[0], d_vbo_vertex, sizeof(glm::vec4)*numParticles, cudaMemcpyDeviceToHost);
 
-	cudaStatus = cudaGraphicsUnmapResources(1, &d_vbo_array_resource);
+	//cudaStatus = cudaGraphicsUnmapResources(1, &d_vbo_array_resource);
 
-	ofstream outfile(file_name);
-	outfile << "# vertices" << endl;
-	for (auto ver : updated_vertex)
-	{
-		outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
-	}
+	//ofstream outfile(file_name);
+	//outfile << "# vertices" << endl;
+	//for (auto ver : updated_vertex)
+	//{
+	//	outfile << "v " << ver.x << " " << ver.y << " " << ver.z << endl;   //数据写入文件
+	//}
 
-	outfile << "# faces" << endl;
-	for (auto face : sim_cloth->faces)
-	{
-		outfile << "f " << face.vertex_index[0] + 1 << " " << face.vertex_index[1] + 1 << " " << face.vertex_index[2] + 1 << endl;
-	}
+	//outfile << "# faces" << endl;
+	//for (auto face : sim_cloth->faces)
+	//{
+	//	outfile << "f " << face.vertex_index[0] + 1 << " " << face.vertex_index[1] + 1 << " " << face.vertex_index[2] + 1 << endl;
+	//}
 
-	outfile.close();
+	//outfile.close();
 }
 
 void Simulator::computeGridSize(unsigned int n, unsigned int blockSize, unsigned int &numBlocks, unsigned int &numThreads)
@@ -261,9 +257,4 @@ void Simulator::swap_buffer()
 	x_last_out = x_last[writeID];
 }
 
-void Simulator::add_bvh(BVHAccel& bvh)
-{
-	d_leaf_nodes = bvh.d_leaf_nodes;
-	d_internal_nodes = bvh.d_internal_nodes;
-	d_primitives = bvh.d_primitives;
-}
+
