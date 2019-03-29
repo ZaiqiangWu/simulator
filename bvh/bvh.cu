@@ -448,3 +448,112 @@ bool BVHAccel::check_overlap(const glm::vec3 point, BRTreeNode* node)const
 	return node->bbox.intersect(point);
 }
 
+__device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx)
+{
+	// Allocate traversal stack from thread-local memory,
+	// and push NULL to indicate that there are no postponed nodes.
+	BRTreeNode* stack[64];
+	BRTreeNode** stackPtr = stack;
+	*stackPtr++ = NULL; // push
+
+						// Traverse nodes starting from the root.
+	BRTreeNode* node = get_root(leaf_nodes, internal_nodes);
+	do
+	{
+		// Check each child node for overlap.
+		BRTreeNode* childA = get_left_child(leaf_nodes, internal_nodes, node);
+		BRTreeNode* childB = get_right_child(leaf_nodes, internal_nodes, node);
+		bool overlapL = check_overlap(point, childA);
+		bool overlapR = check_overlap(point, childB);
+
+		// Query overlaps a leaf node => report collision with the first collision.
+		if (overlapL && is_leaf(leaf_nodes, internal_nodes, childA))
+		{
+			idx = childA->getIdx();       //is a leaf, and we can get it through primitive[idx]
+			return true;
+		}
+
+		if (overlapR && is_leaf(leaf_nodes, internal_nodes, childB))
+		{
+			idx = childB->getIdx();
+			return true;
+		}
+
+		// Query overlaps an internal node => traverse.
+		bool traverseL = (overlapL && !is_leaf(leaf_nodes, internal_nodes, childA));
+		bool traverseR = (overlapR && !is_leaf(leaf_nodes, internal_nodes, childB));
+
+		if (!traverseL && !traverseR)
+			node = *--stackPtr; // pop
+		else
+		{
+			node = (traverseL) ? childA : childB;
+			if (traverseL && traverseR)
+				*stackPtr++ = childB; // push
+		}
+	} while (node != NULL);
+
+	return false;
+}
+
+
+__device__ BRTreeNode*  get_root(BRTreeNode* leaf_nodes, BRTreeNode* internal_nodes)
+{
+	return &internal_nodes[0];
+}
+__device__ BRTreeNode*  get_left_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
+{
+	bool is_leaf = false;
+	bool is_null = false;
+	int  child_idx = false;
+	child_idx = node->getChildA(is_leaf, is_null);
+	if (!is_null)
+	{
+		if (is_leaf)
+		{
+			return &leaf_nodes[child_idx];
+		}
+		else
+		{
+			return &internal_nodes[child_idx];
+		}
+	}
+	else
+		return nullptr;
+}
+__device__ BRTreeNode*  get_right_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
+{
+	bool is_leaf = false;
+	bool is_null = false;
+	int  child_idx = false;
+	child_idx = node->getChildB(is_leaf, is_null);
+	if (!is_null)
+	{
+		if (is_leaf)
+		{
+			return &leaf_nodes[child_idx];
+		}
+		else
+		{
+			return &internal_nodes[child_idx];
+		}
+	}
+	else
+		return nullptr;
+}
+__device__ bool  is_leaf(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
+{
+	bool is_leaf = false;
+	bool is_null_a = false;
+	bool is_null_b = false;
+	node->getChildA(is_leaf, is_null_a);
+	node->getChildB(is_leaf, is_null_b);
+
+	if (is_null_a && is_null_b)
+		return true;
+	return false;
+}
+__device__ bool  check_overlap(const glm::vec3 point, BRTreeNode* node)
+{
+	return node->bbox.intersect(point);
+}

@@ -13,7 +13,7 @@
 
 #pragma comment(lib, "glew32s.lib")
 
-//singleton
+// Singleton
 class Scene
 {
 public:
@@ -25,18 +25,15 @@ public:
 	void init_simulation();               // construct simualtion
 	void render();
 
-public:
-	vector<VAO_Buffer> obj_vaos;
-	
 private:
 	Scene(int argc, char** argv);  //initial
+	void add(Mesh& object);   //add objects,bind VAOs 
+	void RenderBuffer(VAO_Buffer vao_buffer);
 	void loadShader();
 	void save_obj(string file, vector<glm::vec3> vertices);
 
-	void add(Mesh& object);   //add objects,bind VAOs 
-	void RenderBuffer(VAO_Buffer vao_buffer);
-
 private:
+	vector<VAO_Buffer> obj_vaos;
 	static Scene* pscene;       //pscene points to the Scene(singleton)
 	GLSLShader renderShader;
 	enum attributes { position, texture, normal };

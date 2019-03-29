@@ -61,7 +61,7 @@ Scene::Scene(int argc, char** argv)
 
 Scene::~Scene()
 {
-
+	delete simulation;
 }
 
 void Scene::add_cloth(Mesh& object)

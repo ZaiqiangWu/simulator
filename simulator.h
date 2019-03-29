@@ -16,6 +16,7 @@ public:
 
 private:
 	void init_cloth(Mesh& cloth);
+	void init_spring(Mesh& cloth);
 	void init_bvh(Mesh& body);
 	
 	void cuda_get_face_normal(Mesh* sim_cloth, unsigned int* d_adjvertex_to_face);
@@ -56,6 +57,5 @@ private:
 public:
 	vector<glm::vec3> obj_vertices;
 	vector<Primitive> h_primitives;     // host primitives for cuda_bvh construction
-	unsigned int NUM_PER_VERTEX_ADJ_FACES; 
 };
 

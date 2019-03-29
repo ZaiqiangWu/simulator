@@ -6,6 +6,9 @@
 #include <cuda_gl_interop.h>
 #include <iostream>
 #include <fstream>
+
+#include "sim_parameter.h"
+
 using namespace std;
 
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face);   //update cloth face normal
@@ -32,9 +35,15 @@ Simulator::~Simulator()
 	cudaFree(d_face_normals);
 }
 
+Simulator::Simulator(Mesh& sim_cloth, Mesh& body) :readID(0), writeID(1)
+{
+	init_cloth(sim_cloth);
+	init_spring(sim_cloth);
+	init_bvh(body);
+}
+
 void Simulator::init_cloth(Mesh& sim_cloth)
 {
-
 	// \d_vbo_array_resource points to cloth's array buffer  
 	cudaError_t cudaStatus = cudaGraphicsGLRegisterBuffer(&d_vbo_array_resource, sim_cloth.vbo.array_buffer, cudaGraphicsMapFlagsWriteDiscard);   	//register vbo
 	if (cudaStatus != cudaSuccess)
@@ -76,11 +85,26 @@ void Simulator::init_cloth(Mesh& sim_cloth)
 
 	const unsigned int face_normal_bytes = sizeof(glm::vec3) * sim_cloth.faces.size();    //face normal
 	cudaStatus = cudaMalloc((void**)&d_face_normals, face_normal_bytes);
+}
 
+void Simulator::init_spring(Mesh& sim_cloth)
+{
 	// Construct structure and bend springs in GPU
-	Springs d_spring(&sim_cloth);
-	d_adj_structure_spring = d_spring.d_adj_structure_spring;
-	d_adj_bend_spring = d_spring.d_adj_bend_spring;
+	Springs springs(&sim_cloth);
+	vector<s_spring> cpu_str_spring;
+	vector<s_spring> cpu_bend_spring;
+
+	springs.serialize_structure_spring(cpu_str_spring);
+	springs.serialize_bend_spring(cpu_bend_spring);
+
+	cudaError_t cudaStatus = cudaMalloc((void**)&d_adj_structure_spring, cpu_str_spring.size() * sizeof(s_spring));
+	cudaStatus = cudaMalloc((void**)&d_adj_bend_spring, cpu_bend_spring.size() * sizeof(s_spring));
+	cudaStatus = cudaMemcpy(d_adj_structure_spring, &cpu_str_spring[0], cpu_str_spring.size() * sizeof(s_spring), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(d_adj_bend_spring, &cpu_bend_spring[0], cpu_bend_spring.size() * sizeof(s_spring), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess)
+	{
+		cout << "error" << cudaGetErrorString(cudaStatus) << endl;
+	}
 }
 
 void Simulator::init_bvh(Mesh& body)
@@ -94,12 +118,6 @@ void Simulator::init_bvh(Mesh& body)
 	d_leaf_nodes = cuda_bvh->d_leaf_nodes;
 	d_internal_nodes = cuda_bvh->d_internal_nodes;
 	d_primitives = cuda_bvh->d_primitives;
-}
-
-Simulator::Simulator(Mesh& sim_cloth, Mesh& body) :readID(0), writeID(1), NUM_PER_VERTEX_ADJ_FACES(20)
-{
-	init_cloth(sim_cloth); 
-	init_bvh(body);
 }
 
 void Simulator::get_primitives(Mesh& body, vector<glm::vec3>& obj_vertices, vector<Primitive>& h_primitives)
@@ -163,7 +181,7 @@ void Simulator::get_vertex_adjface(Mesh& sim_cloth, vector<unsigned int>& vertex
 		}
 	}
 
-	// 每个点最大包含20个邻近面，不足者以UINT_MAX作为结束标志
+	// 每个点最大包含20个邻近面，不足者以SENTINEL作为结束标志
 	vertex_adjface.resize(sim_cloth.vertices.size()*NUM_PER_VERTEX_ADJ_FACES);
 	for(int i=0;i<adjaceny.size();i++)
 	{
@@ -173,7 +191,7 @@ void Simulator::get_vertex_adjface(Mesh& sim_cloth, vector<unsigned int>& vertex
 			vertex_adjface[i*NUM_PER_VERTEX_ADJ_FACES+j] = adjaceny[i][j];
 		}
 		if(NUM_PER_VERTEX_ADJ_FACES>adjaceny[i].size())
-			vertex_adjface[i*NUM_PER_VERTEX_ADJ_FACES+j] = UINT_MAX;                  //Sentinel
+			vertex_adjface[i*NUM_PER_VERTEX_ADJ_FACES+j] = SENTINEL;                  //Sentinel
 	}
 }
 

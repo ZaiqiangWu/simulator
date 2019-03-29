@@ -4,21 +4,6 @@
 #include <vector>
 #include <map>
 
-class Matrix
-{
-public:
-	Matrix() {};
-	Matrix(Mesh* _obj):obj(_obj) {};
-	~Matrix();
-	void Insert_Matrix(unsigned int i, unsigned int j, unsigned int k, 
-		vector<pair<unsigned int,unsigned int>> &value_inline, map<pair<unsigned int, unsigned int>, float>& spring_length);
-
-private:
-	map<pair<unsigned int,unsigned int>,unsigned int>  mat;
-	Mesh* obj;
-
-};
-
 //simplified spring
 struct s_spring      
 {
@@ -30,15 +15,10 @@ class Springs
 {
 public:
 	~Springs();
-	Springs(Mesh* cloth);  //创建两级邻域，boundary and cloth弹簧劲度系数一致
-	void draw();
-
-
-public:
-	s_spring* d_adj_structure_spring;  //二维数组转为一维数组
-	s_spring* d_adj_bend_spring;
-	unsigned int NUM_PER_VERTEX_SPRING_STRUCT ;    //一级邻域的最大数目，若小于NUM_PER_VERTEX_SPRING_STRUCT，以MAX_INT结尾
-	unsigned int NUM_PER_VERTEX_SPRING_BEND ;    //二级邻域的最大数目，若小于NUM_PER_VERTEX_SPRING_BEND，以MAX_INT结尾
+	Springs(Mesh* spring_obj);  //创建两级邻域，boundary and cloth弹簧劲度系数一致
+	void draw(Mesh* spring_obj);
+	void serialize_structure_spring(vector<s_spring>& cpu_neigh1);  // 2D->1D
+	void serialize_bend_spring(vector<s_spring>& cpu_neigh2);  // 2D->1D
 
 private:
 	vector<pair<unsigned int,unsigned int>> cloth_boundary_springs;   //只包含pair(1,2)
@@ -49,15 +29,13 @@ private:
 
 	vector<vector<s_spring>> neigh1_spring;   //存储每个点的所有一级邻域信息(存储点的索引)+ 原长,即 structure spring
 	vector<vector<s_spring>> neigh2_spring;   //存储每个点的所有二级邻域信息(存储点的索引)+ + 原长,即 bend spring
-	Mesh* spring_obj;
 	map<pair<unsigned int, unsigned int>,float> bend_spring_length;  //存储两个共边三角形对角顶点索引+共面后的距离
 
 private:
 	//void ad spring(float stiffness,vector<glm::vec4>& vertices,unsigned int p1,unsigned int p2);
-	void create_neigh();
-	void create_neigh_spring();
+	void create_neigh(Mesh* spring_obj);
+	void create_neigh_spring(Mesh* spring_obj);
 	bool exist(const vector<unsigned int>& array, const unsigned int val);
-	bool cuda_neigh();
-	void get_cloth_boundary_spring();
-	void get_boundary_boundary_spring();
+	void get_cloth_boundary_spring(Mesh* spring_obj);
+	void get_boundary_boundary_spring(Mesh* spring_obj);
 };
