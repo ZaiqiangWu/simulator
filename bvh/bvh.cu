@@ -45,31 +45,40 @@ bool d_mortonCompare(const Primitive& p1, const Primitive& p2)
 __global__ void get_bb(int num, int m, Primitive* d_primitives,BBox* d_bb)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= num)
+	if (index >= num +1)
 		return;
 	int div = m / num;
 	int res = m%num;
-
-	BBox tem;
-	for (int i = 0; i < div; i++)  //use shared to replace
+	if (index == num + 1)
 	{
-		tem.expand(d_primitives[i*num + index].d_get_bbox());
-	}
-	d_bb[index].expand(tem);
-	__syncthreads();
-
-	if (index == 0)
-	{
-		for (int i = 0; i < num; i++)
-		{
-			d_bb[0].expand(d_bb[i]);
-		}
 		for (int i = m - res; i < m; i++)
 		{
-			d_bb[0].expand(d_primitives[i].d_get_bbox());
+			d_bb[index].expand(d_primitives[i].d_get_bbox());
 		}
 	}
+	else
+	{
+		BBox tem;
+		for (int i = 0; i < div; i++)  //use shared to replace
+		{
+			tem.expand(d_primitives[i*num + index].d_get_bbox());
+		}
+		d_bb[index].expand(tem);
+	}
+	
+	__syncthreads();
 
+	//if (index == 0)
+	//{
+	//	for (int i = 0; i < num; i++)
+	//	{
+	//		d_bb[0].expand(d_bb[i]);
+	//	}
+	//	for (int i = m - res; i < m; i++)
+	//	{
+	//		d_bb[0].expand(d_primitives[i].d_get_bbox());
+	//	}
+	//}
 }
 
 __global__ void get_morton(int num, Primitive* d_primitives, BBox bb)
@@ -145,7 +154,6 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	size_t max_leaf_size)
 {
 	stop_watch watch;
-
 	this->primitives = _primitives;
 
 	// edge case
@@ -155,29 +163,25 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 
 	// calculate root AABB size
 	watch.start();
-	/*BBox bb;
-	for (size_t i = 0; i < primitives.size(); ++i) {
-		bb.expand(primitives[i].get_bbox());
-	}*/
 	const unsigned int num_threads = 128;
-	vector<BBox> c_bb(num_threads);
+	vector<BBox> c_bb(num_threads+1);
 	BBox* d_bb;
 	Primitive* d_tem_primitives;
 	copyFromCPUtoGPU((void**)&d_tem_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
-	copyFromCPUtoGPU((void**)&d_bb, &c_bb[0], sizeof(BBox)*num_threads);
-	get_bb <<<1, num_threads >>> (num_threads, primitives.size(),d_tem_primitives, d_bb);
+	copyFromCPUtoGPU((void**)&d_bb, &c_bb[0], sizeof(BBox)* c_bb.size());
+	get_bb <<<1, c_bb.size() >>> (num_threads, primitives.size(),d_tem_primitives, d_bb);
 	
-	BBox* cc_bb;
-	copyFromGPUtoCPU((void**)&cc_bb, d_bb, sizeof(BBox)*num_threads);
-	BBox bb = cc_bb[0];
-
+	BBox* cc_bb, bb;;
+	copyFromGPUtoCPU((void**)&cc_bb, d_bb, sizeof(BBox)*c_bb.size());
+	for (int i = 0; i < c_bb.size(); i++)
+	{
+		bb.expand(cc_bb[i]);
+	}
 	
 	watch.stop();
-	//cout << "expand time elapsed: " << watch.elapsed() << "us" << endl;
 
 	watch.restart();
 	// calculate morton code for each primitives
-
 	/*for (size_t i = 0; i < primitives.size(); ++i) {
 		unsigned int morton_code = morton3D(bb.getUnitcubePosOf(primitives[i].get_bbox().centroid()));
 		primitives[i].morton_code = morton_code;
@@ -199,7 +203,6 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	//thrust::sort(thrust::host, primitives.begin(),primitives.end(), mortonCompare);
 	std::sort(primitives.begin(), primitives.end(), mortonCompare);    //cpu is faster than gpu, are u kidding me?
 	watch.stop();
-	//cout << "sort time elapsed: " << watch.elapsed() << "us" << endl;
 
 	cudaFree(d_tem_primitives);
 	cudaFree(d_bb);
@@ -220,8 +223,6 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	}
 	primitives = new_pri;
 	watch.stop();
-	//cout << "remove duplicate time elapsed: " << watch.elapsed() << "us" << endl;
-	//cout << "triangle size: " << primitives.size() << endl;
 
 	watch.restart();
 	
@@ -281,54 +282,71 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	builder.freeHostMemory();
 	watch.stop();
 	//cout << "free time elapsed: " << watch.elapsed() << "us" << endl;
-
-
 }
 
 BVHAccel::~BVHAccel() {  }
 
-void BVHAccel::access(BRTreeNode* root, vector<BRTreeNode*>& bad_bode)
+
+#ifdef _DEBUG
+BRTreeNode* BVHAccel::get_root() const
 {
-	if (root->bbox.min.x > root->bbox.max.x)
+	return &h_internal_nodes[0];
+}
+BRTreeNode* BVHAccel::get_left_child(BRTreeNode* node)const
+{
+	bool is_leaf = false;
+	bool is_null = false;
+	int  child_idx = false;
+	child_idx = node->getChildA(is_leaf, is_null);
+	if (!is_null)
 	{
-		if (is_leaf(root))
+		if (is_leaf)
 		{
-			bad_bode.push_back(root);
-			return;
+			return &h_leaf_nodes[child_idx];
 		}
 		else
 		{
-			access(get_left_child(root), bad_bode);
-			access(get_right_child(root), bad_bode);
+			return &h_internal_nodes[child_idx];
 		}
 	}
-
-
+	else
+		return nullptr;
 }
-
-void BVHAccel::pre_drawoutline()
+BRTreeNode* BVHAccel::get_right_child(BRTreeNode* node)const
 {
-	copyFromGPUtoCPU((void**)&h_internal_nodes, d_internal_nodes, sizeof(BRTreeNode)*numInternalNode);
-	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_leaf_nodes, sizeof(BRTreeNode)*numLeafNode);
-
-}
-
-
-void BVHAccel::draw(BRTreeNode* root)
-{
-
-	root->bbox.draw();
-	if (is_leaf(root))
+	bool is_leaf = false;
+	bool is_null = false;
+	int  child_idx = false;
+	child_idx = node->getChildB(is_leaf, is_null);
+	if (!is_null)
 	{
-		return;
+		if (is_leaf)
+		{
+			return &h_leaf_nodes[child_idx];
+		}
+		else
+		{
+			return &h_internal_nodes[child_idx];
+		}
 	}
 	else
-	{
-		draw(get_left_child(root));
-		draw(get_right_child(root));
-	}
+		return nullptr;
 }
+bool BVHAccel::is_leaf(BRTreeNode* node)const
+{
+	bool is_leaf = false;
+	bool is_null_a = false;
+	bool is_null_b = false;
+	int  child_idx_a = false;
+	int  child_idx_b = false;
+	child_idx_a = node->getChildA(is_leaf, is_null_a);
+	child_idx_b = node->getChildB(is_leaf, is_null_b);
 
+	if (is_null_a && is_null_b)
+		return true;
+	return false;
+
+}
 bool BVHAccel::intersect(const glm::vec3 point, int& idx) const
 {
 	// Allocate traversal stack from thread-local memory,
@@ -377,77 +395,51 @@ bool BVHAccel::intersect(const glm::vec3 point, int& idx) const
 	} while (node != NULL);
 	return false;
 }
-
-
-BRTreeNode* BVHAccel::get_root() const
-{
-	return &h_internal_nodes[0];
-}
-
-
-BRTreeNode* BVHAccel::get_left_child(BRTreeNode* node)const
-{
-	bool is_leaf = false;
-	bool is_null = false;
-	int  child_idx = false;
-	child_idx = node->getChildA(is_leaf, is_null);
-	if (!is_null)
-	{
-		if (is_leaf)
-		{
-			return &h_leaf_nodes[child_idx];
-		}
-		else
-		{
-			return &h_internal_nodes[child_idx];
-		}
-	}
-	else
-		return nullptr;
-}
-
-BRTreeNode* BVHAccel::get_right_child(BRTreeNode* node)const
-{
-	bool is_leaf = false;
-	bool is_null = false;
-	int  child_idx = false;
-	child_idx = node->getChildB(is_leaf, is_null);
-	if (!is_null)
-	{
-		if (is_leaf)
-		{
-			return &h_leaf_nodes[child_idx];
-		}
-		else
-		{
-			return &h_internal_nodes[child_idx];
-		}
-	}
-	else
-		return nullptr;
-}
-
-bool BVHAccel::is_leaf(BRTreeNode* node)const
-{
-	bool is_leaf = false;
-	bool is_null_a = false;
-	bool is_null_b = false;
-	int  child_idx_a = false;
-	int  child_idx_b = false;
-	child_idx_a = node->getChildA(is_leaf, is_null_a);
-	child_idx_b = node->getChildB(is_leaf, is_null_b);
-
-	if (is_null_a && is_null_b)
-		return true;
-	return false;
-
-}
-
 bool BVHAccel::check_overlap(const glm::vec3 point, BRTreeNode* node)const
 {
 	return node->bbox.intersect(point);
 }
+void BVHAccel::access(BRTreeNode* root, vector<BRTreeNode*>& bad_bode)
+{
+	if (root->bbox.min.x > root->bbox.max.x)
+	{
+		if (is_leaf(root))
+		{
+			bad_bode.push_back(root);
+			return;
+		}
+		else
+		{
+			access(get_left_child(root), bad_bode);
+			access(get_right_child(root), bad_bode);
+		}
+	}
 
+
+}
+void BVHAccel::pre_drawoutline()
+{
+	copyFromGPUtoCPU((void**)&h_internal_nodes, d_internal_nodes, sizeof(BRTreeNode)*numInternalNode);
+	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_leaf_nodes, sizeof(BRTreeNode)*numLeafNode);
+
+}
+void BVHAccel::draw(BRTreeNode* root)
+{
+
+	root->bbox.draw();
+	if (is_leaf(root))
+	{
+		return;
+	}
+	else
+	{
+		draw(get_left_child(root));
+		draw(get_right_child(root));
+	}
+}
+#endif
+
+// GPU version for bvh tree 
 __device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx)
 {
 	// Allocate traversal stack from thread-local memory,
@@ -495,8 +487,6 @@ __device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes,
 
 	return false;
 }
-
-
 __device__ BRTreeNode*  get_root(BRTreeNode* leaf_nodes, BRTreeNode* internal_nodes)
 {
 	return &internal_nodes[0];

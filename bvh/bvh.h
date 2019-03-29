@@ -40,24 +40,20 @@ public:
 	std::vector<Primitive> primitives;
 	vector<glm::vec3> obj_vertices;
 
-
-
-		bool intersect(const glm::vec3 point, int& idx) const;
-
-		BRTreeNode* get_root() const;
-
-		BRTreeNode* get_left_child(BRTreeNode* node) const;
-
-		BRTreeNode* get_right_child(BRTreeNode* node) const;
-
-		bool is_leaf(BRTreeNode* node) const;
-
-		bool check_overlap(const glm::vec3 point, BRTreeNode* node) const;
+#ifdef _DEBUG
+	BRTreeNode* get_root() const;
+	BRTreeNode* get_left_child(BRTreeNode* node) const;
+	BRTreeNode* get_right_child(BRTreeNode* node) const;
+	bool is_leaf(BRTreeNode* node) const;
+	bool intersect(const glm::vec3 point, int& idx) const;
+	bool check_overlap(const glm::vec3 point, BRTreeNode* node) const;
 
 	//显示包围盒之前需要调用，完成数据从GPU到CPU的拷贝
 	void pre_drawoutline();  //for test
 	void draw(BRTreeNode* root);
 	void access(BRTreeNode* root, vector<BRTreeNode*>& bad_bode);
+#endif
+
 private:
 
 	//functions for morton code based BVH construction algorithm
