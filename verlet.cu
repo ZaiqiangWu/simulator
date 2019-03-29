@@ -11,11 +11,11 @@
 
 
 //physics parameter
-__device__ double spring_structure = 100.0;
-__device__ double spring_bend = 2.0;
-__device__ float damp = -0.02f; 
-__device__ float mass = 0.3;
-__device__ float dt = 1 / 40.0f;
+__constant__ double spring_structure = 100.0;
+__constant__ double spring_bend = 2.0;
+__constant__ float damp = -0.02f; 
+__constant__ float mass = 0.3;
+__constant__ float dt = 1 / 40.0f;
 
 
 __device__ void collision_response_projection(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,
