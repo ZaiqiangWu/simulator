@@ -4,6 +4,33 @@
 
 #define DEFAULT_THREAD_PER_BLOCK 1024
 
+/*check error code of cudaMalloc and print out if needed*/
+#define safe_cuda(CODE)\
+ {\
+  cudaError_t err = CODE;\
+  if(err != cudaSuccess) {\
+    std::cout<<"CUDA error:"<<cudaGetErrorString(err)<<std::endl;\
+ }\
+}
+
+/**
+* alloc a memory on gpu and copy data from cpu to gpu.
+*/
+inline void copyFromCPUtoGPU(void** dst, void* src, int size)
+{
+	cudaMalloc(dst, size);
+	safe_cuda(cudaMemcpy(*dst, src, size, cudaMemcpyHostToDevice));
+}
+
+/**
+* alloc a memory on cpu and copy data from gpu to cpu.
+*/
+inline void copyFromGPUtoCPU(void** dst, void* src, int size)
+{
+	*dst = malloc(size);
+	safe_cuda(cudaMemcpy(*dst, src, size, cudaMemcpyDeviceToHost));
+}
+
 /**
 * BRTreeNode
 *
@@ -109,39 +136,6 @@ private:
 	int parent;
 	int idx;
 };
-
-class ParallelBRTreeBuilder
-{
-public:
-	ParallelBRTreeBuilder(unsigned int* const sorted_morton_code, BBox* const bboxes, int size);
-	void build();
-
-	BRTreeNode* get_leaf_nodes();
-	BRTreeNode* get_internal_nodes();
-	BRTreeNode* get_d_leaf_nodes();
-	BRTreeNode* get_d_internal_nodes();
-
-	void freeHostMemory();
-	void freeDeviceMemory();
-
-	~ParallelBRTreeBuilder();
-
-
-	int numInternalNode;
-	int numLeafNode;
-	BBox* d_bboxes;
-private:
-	unsigned int* d_sorted_morton_code;
-	
-	BRTreeNode* d_leaf_nodes;
-	BRTreeNode* h_leaf_nodes;
-	BRTreeNode* d_internal_nodes;
-	BRTreeNode* h_internal_nodes;
-
-};
-
-
-
 
 
 __global__  void processInternalNode(unsigned int* sorted_morton_code, int numInternalNode,

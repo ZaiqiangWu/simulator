@@ -180,16 +180,18 @@ void BVHAccel::compute_bbox_and_morton()
 	cudaFree(d_bboxes);
 }
 
-void BVHAccel::init(int size)
+void BVHAccel::init()
 {
+	auto size = _sorted_primitives.size();
 	numInternalNode = size - 1;
 	numLeafNode = size;
 
+	//whether to set h_vertices = NULL before send to gpu?
+	copyFromCPUtoGPU((void**)&d_primitives, &_sorted_primitives[0], sizeof(Primitive)*_sorted_primitives.size());
 	copyFromCPUtoGPU((void**)&d_sorted_morton_code, &_sorted_morton_codes[0], sizeof(MortonCode)*_sorted_morton_codes.size());
 	copyFromCPUtoGPU((void**)&d_bboxes, &_sorted_bboxes[0], sizeof(BBox)*_sorted_bboxes.size());
 
 	//initialize d_leaf_nodes and d_internal_nodes: with a parallel way? ?????
-
 	h_leaf_nodes = (BRTreeNode*)calloc(numLeafNode, sizeof(BRTreeNode));
 	for (int idx = 0; idx < numLeafNode; idx++) {
 		h_leaf_nodes[idx].setIdx(idx);
@@ -246,6 +248,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_lea
 
 	compute_bbox_and_morton();
 
+	watch.start();
 	// remove duplicates
 	vector<unsigned int> indices;
 	indices_sort(_morton_codes, indices);
@@ -255,35 +258,40 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_lea
 	filter(_primitives, indices, _sorted_primitives);
 	filter(_bboxes, indices, _sorted_bboxes);
 
+	watch.stop();
+	cout << "bvh done free time elapsed: " << watch.elapsed() << "us" << endl;
 
-	//whether to set h_vertices = NULL before send to gpu?
-	copyFromCPUtoGPU((void**)&d_primitives, &_sorted_primitives[0], sizeof(Primitive)*_sorted_primitives.size());
-
-	// delegate the binary radix tree construction process to GPU
-	//cout << "start building parallel brtree" << endl;
-	//ParallelBRTreeBuilder builder(&_sorted_morton_codes[0], &_sorted_bboxes[0], _sorted_primitives.size());
-	// copy data from cpu to gpu
-
-
-
-	init(_sorted_primitives.size());
+	init();
 
 	build();
 
-	/*numInternalNode = builder.numInternalNode;
-	numLeafNode = builder.numLeafNode;
-
-	d_leaf_nodes = builder.get_d_leaf_nodes();
-	d_internal_nodes = builder.get_d_internal_nodes();*/
-
-	watch.stop();
-	cout << "bvh done free time elapsed: " << watch.elapsed() << "us" << endl;
+	
 }
 
 BVHAccel::~BVHAccel() {  }
 
+void BVHAccel::freeHostMemory()
+{
+
+}
+void BVHAccel::freeDeviceMemory()
+{
+	//cudaFree(d_leaf_nodes);
+	//cudaFree(d_internal_nodes);
+	cudaFree(d_sorted_morton_code);
+}
 
 #ifdef _DEBUG
+BRTreeNode* BVHAccel::get_leaf_nodes()
+{
+	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_leaf_nodes, numLeafNode * sizeof(BRTreeNode));
+	return h_leaf_nodes;
+}
+BRTreeNode* BVHAccel::get_internal_nodes()
+{
+	copyFromGPUtoCPU((void**)&h_internal_nodes, d_internal_nodes, numInternalNode * sizeof(BRTreeNode));
+	return h_internal_nodes;
+}
 BRTreeNode* BVHAccel::get_root() const
 {
 	return &h_internal_nodes[0];

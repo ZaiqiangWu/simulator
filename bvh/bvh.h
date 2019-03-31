@@ -59,8 +59,15 @@ private:
 	unsigned int morton3D(glm::vec3 pos);
 	void compute_bbox_and_morton();
 	BBox computet_root_bbox(Primitive* d_tem_primitives);    // get root AABB size
-	void init(int size);
+	void init();
 	void build();
+
+
+	BRTreeNode* get_leaf_nodes();
+	BRTreeNode* get_internal_nodes();
+
+	void freeHostMemory();
+	void freeDeviceMemory();
 
 private:
 
