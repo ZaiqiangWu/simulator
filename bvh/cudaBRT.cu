@@ -1,7 +1,7 @@
 #include "cudaBRT.h"
 #include <iostream>
 
-#define DEFAULT_THREAD_PER_BLOCK 1024
+
 
 /*check error code of cudaMalloc and print out if needed*/
 #define safe_cuda(CODE)\
@@ -340,12 +340,5 @@ BRTreeNode* ParallelBRTreeBuilder::get_d_internal_nodes()
 {
 	return d_internal_nodes;
 }
-void ParallelBRTreeBuilder::set_d_leaf_nodes(BRTreeNode* p)
-{
-	d_leaf_nodes = p;
-}
-void ParallelBRTreeBuilder::set_d_internal_nodes(BRTreeNode* p)
-{
-	d_internal_nodes = p;
-}
+
 

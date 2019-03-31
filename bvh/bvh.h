@@ -14,7 +14,7 @@ using MortonCode = unsigned int;
 * is created, the original input primitives can be ignored from the scene
 * during point-objects intersection tests as they are contained in the aggregate.
 */
-class BVHAccel : public Primitive {
+class BVHAccel{
 public:
 
 	BVHAccel() { }
@@ -57,9 +57,10 @@ private:
 	unsigned int expandBits(unsigned int v);
 	unsigned int morton3D(float x, float y, float z);
 	unsigned int morton3D(glm::vec3 pos);
-	void ParallelBVHFromBRTree(BRTreeNode* _d_leaf_nodes, BRTreeNode* _d_internal_nodes);
 	void compute_bbox_and_morton();
 	BBox computet_root_bbox(Primitive* d_tem_primitives);    // get root AABB size
+	void init(int size);
+	void build();
 
 private:
 
@@ -73,10 +74,14 @@ private:
 	vector<Primitive> _primitives;
 	vector<Primitive> _sorted_primitives;
 
-public:
-	vector<glm::vec3> obj_vertices;
+	BBox* d_bboxes;
+	MortonCode* d_sorted_morton_code;
 
 public:
+
+	int numInternalNode;
+	int numLeafNode;
+
 	// external interface
 	Primitive* d_primitives;
 	BRTreeNode* d_leaf_nodes;
@@ -84,9 +89,6 @@ public:
 
 	BRTreeNode* h_leaf_nodes;
 	BRTreeNode* h_internal_nodes;
-
-	int numInternalNode;
-	int numLeafNode;
 };
 
 extern __device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx);

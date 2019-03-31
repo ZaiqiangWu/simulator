@@ -40,7 +40,7 @@ __device__ unsigned int d_morton3D(glm::vec3 p)
 }
 
 
-__global__ void get_bb(int num, int m, Primitive* d_primitives,BBox* d_bb)
+__global__ void get_bb(int num, int m, Primitive* d_primitives, BBox* d_bb)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= num +1)
@@ -49,19 +49,21 @@ __global__ void get_bb(int num, int m, Primitive* d_primitives,BBox* d_bb)
 	int res = m%num;
 	if (index == num + 1)
 	{
+		BBox tem_bbox;
 		for (int i = m - res; i < m; i++)
 		{
-			d_bb[index].expand(d_primitives[i].d_get_bbox());
+			tem_bbox.expand(d_primitives[i].d_get_bbox());
 		}
+		d_bb[index] = tem_bbox;
 	}
 	else
 	{
-		BBox tem;
+		BBox tem_bbox;
 		for (int i = 0; i < div; i++)  //use shared to replace
 		{
-			tem.expand(d_primitives[i*num + index].d_get_bbox());
+			tem_bbox.expand(d_primitives[i*num + index].d_get_bbox());
 		}
-		d_bb[index].expand(tem);
+		d_bb[index].expand(tem_bbox);
 	}
 }
 
@@ -70,10 +72,9 @@ __global__ void compute_morton_bbox(int num, Primitive* d_primitives, BBox bb, M
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= num)
 		return;
-
-	unsigned int morton_code = d_morton3D(bb.getUnitcubePosOf(d_primitives[index].d_get_bbox().centroid()));
-	mortons[index] = morton_code;
-	bboxes[index] = d_primitives[index].d_get_bbox();
+	BBox tem_bbox = d_primitives[index].d_get_bbox();
+	bboxes[index] = tem_bbox;
+	mortons[index] = d_morton3D(bb.getUnitcubePosOf(tem_bbox.centroid()));
 }
 
 // Expands a 10-bit integer into 30 bits
@@ -179,14 +180,60 @@ void BVHAccel::compute_bbox_and_morton()
 	cudaFree(d_bboxes);
 }
 
-void BVHAccel::ParallelBVHFromBRTree(BRTreeNode* _d_leaf_nodes, BRTreeNode* _d_internal_nodes)
+void BVHAccel::init(int size)
 {
-	d_leaf_nodes = _d_leaf_nodes;
-	d_internal_nodes = _d_internal_nodes;
+	numInternalNode = size - 1;
+	numLeafNode = size;
+
+	copyFromCPUtoGPU((void**)&d_sorted_morton_code, &_sorted_morton_codes[0], sizeof(MortonCode)*_sorted_morton_codes.size());
+	copyFromCPUtoGPU((void**)&d_bboxes, &_sorted_bboxes[0], sizeof(BBox)*_sorted_bboxes.size());
+
+	//initialize d_leaf_nodes and d_internal_nodes: with a parallel way? ?????
+
+	h_leaf_nodes = (BRTreeNode*)calloc(numLeafNode, sizeof(BRTreeNode));
+	for (int idx = 0; idx < numLeafNode; idx++) {
+		h_leaf_nodes[idx].setIdx(idx);
+		h_leaf_nodes[idx].bbox = BBox();
+	}
+	copyFromCPUtoGPU((void**)&d_leaf_nodes, h_leaf_nodes, numLeafNode * sizeof(BRTreeNode));
+	free(h_leaf_nodes);
+
+	h_internal_nodes = (BRTreeNode*)calloc(numInternalNode, sizeof(BRTreeNode));
+	for (int idx = 0; idx < numInternalNode; idx++) {
+		h_internal_nodes[idx].setIdx(idx);
+		h_internal_nodes[idx].bbox = BBox();
+	}
+	copyFromCPUtoGPU((void**)&d_internal_nodes, h_internal_nodes, numInternalNode * sizeof(BRTreeNode));
+	free(h_internal_nodes);
 }
 
-BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,
-	size_t max_leaf_size)
+void BVHAccel::build()
+{
+	//build the bvh
+	int threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
+	int numBlock = (numInternalNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
+	processInternalNode << <numBlock, threadPerBlock >> > (d_sorted_morton_code, numInternalNode,
+		d_leaf_nodes, d_internal_nodes);
+
+	//fix << <1, 1 >> > (d_leaf_nodes, d_internal_nodes);
+
+	//calculate bounding box
+	threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
+	numBlock = (numLeafNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
+	calculateBoudingBox << <numBlock, threadPerBlock >> > (d_bboxes, numLeafNode,
+		d_leaf_nodes, d_internal_nodes);
+}
+
+BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_leaf_size):
+
+	d_bboxes(nullptr),
+	d_primitives(nullptr),
+	d_sorted_morton_code(nullptr),
+	d_leaf_nodes(nullptr),
+	h_leaf_nodes(nullptr),
+	d_internal_nodes(nullptr),
+	h_internal_nodes(nullptr)
+
 {
 	stop_watch watch;
 	watch.start();
@@ -214,19 +261,20 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,
 
 	// delegate the binary radix tree construction process to GPU
 	//cout << "start building parallel brtree" << endl;
-	ParallelBRTreeBuilder builder(&_sorted_morton_codes[0], &_sorted_bboxes[0], _sorted_primitives.size());
-	builder.build();
+	//ParallelBRTreeBuilder builder(&_sorted_morton_codes[0], &_sorted_bboxes[0], _sorted_primitives.size());
+	// copy data from cpu to gpu
 
-	numInternalNode = builder.numInternalNode;
+
+
+	init(_sorted_primitives.size());
+
+	build();
+
+	/*numInternalNode = builder.numInternalNode;
 	numLeafNode = builder.numLeafNode;
-	// construct BVH based on Binary Radix Tree --> need to be built in gpu?
-	ParallelBVHFromBRTree(builder.get_d_leaf_nodes(), builder.get_d_internal_nodes());
-	builder.set_d_leaf_nodes(NULL);
-	builder.set_d_internal_nodes(NULL);
 
-	// free the host memory because I am a good programmer
-	builder.freeDeviceMemory();
-	builder.freeHostMemory();
+	d_leaf_nodes = builder.get_d_leaf_nodes();
+	d_internal_nodes = builder.get_d_internal_nodes();*/
 
 	watch.stop();
 	cout << "bvh done free time elapsed: " << watch.elapsed() << "us" << endl;

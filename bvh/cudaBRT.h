@@ -2,6 +2,7 @@
 #include<cuda_runtime.h>
 #include "bbox.h"
 
+#define DEFAULT_THREAD_PER_BLOCK 1024
 
 /**
 * BRTreeNode
@@ -119,35 +120,11 @@ public:
 	BRTreeNode* get_internal_nodes();
 	BRTreeNode* get_d_leaf_nodes();
 	BRTreeNode* get_d_internal_nodes();
-	void set_d_leaf_nodes(BRTreeNode* p);
-	void set_d_internal_nodes(BRTreeNode* p);
 
 	void freeHostMemory();
 	void freeDeviceMemory();
 
 	~ParallelBRTreeBuilder();
-
-	inline void printLeafNode()
-	{
-		for (int i = 0; i<numLeafNode; i++)
-		{
-			h_leaf_nodes[i].printInfo();
-		}
-		return;
-	}
-
-	inline void printInternalNode()
-	{
-		for (int i = 0; i<numInternalNode; i++)
-		{
-			h_internal_nodes[i].printInfo();
-		}
-		return;
-	}
-
-
-
-
 
 
 	int numInternalNode;
@@ -161,6 +138,18 @@ private:
 	BRTreeNode* d_internal_nodes;
 	BRTreeNode* h_internal_nodes;
 
-
-
 };
+
+
+
+
+
+__global__  void processInternalNode(unsigned int* sorted_morton_code, int numInternalNode,
+	BRTreeNode* leafNodes,
+	BRTreeNode* internalNodes);
+
+/**
+* construct bounding boxes from leaf up to root
+*/
+__global__  void calculateBoudingBox(BBox* d_bboxes, int numLeafNode,
+	BRTreeNode* leafNodes, BRTreeNode* internalNodes);
