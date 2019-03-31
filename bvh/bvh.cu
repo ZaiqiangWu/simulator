@@ -180,6 +180,19 @@ void BVHAccel::compute_bbox_and_morton()
 	cudaFree(d_bboxes);
 }
 
+__global__ void init_nodes(BRTreeNode* _nodes,const unsigned int num)
+{
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= num)
+		return;
+
+	BRTreeNode node;
+	node.setIdx(index);
+	node.bbox = BBox();
+
+	_nodes[index] = node;
+}
+
 void BVHAccel::init()
 {
 	auto size = _sorted_primitives.size();
@@ -192,21 +205,17 @@ void BVHAccel::init()
 	copyFromCPUtoGPU((void**)&d_bboxes, &_sorted_bboxes[0], sizeof(BBox)*_sorted_bboxes.size());
 
 	//initialize d_leaf_nodes and d_internal_nodes: with a parallel way? ?????
-	h_leaf_nodes = (BRTreeNode*)calloc(numLeafNode, sizeof(BRTreeNode));
-	for (int idx = 0; idx < numLeafNode; idx++) {
-		h_leaf_nodes[idx].setIdx(idx);
-		h_leaf_nodes[idx].bbox = BBox();
-	}
-	copyFromCPUtoGPU((void**)&d_leaf_nodes, h_leaf_nodes, numLeafNode * sizeof(BRTreeNode));
-	free(h_leaf_nodes);
+	cudaMalloc((void**)&d_leaf_nodes, numLeafNode * sizeof(BRTreeNode));
+	cudaMalloc((void**)&d_internal_nodes, numInternalNode * sizeof(BRTreeNode));
 
-	h_internal_nodes = (BRTreeNode*)calloc(numInternalNode, sizeof(BRTreeNode));
-	for (int idx = 0; idx < numInternalNode; idx++) {
-		h_internal_nodes[idx].setIdx(idx);
-		h_internal_nodes[idx].bbox = BBox();
-	}
-	copyFromCPUtoGPU((void**)&d_internal_nodes, h_internal_nodes, numInternalNode * sizeof(BRTreeNode));
-	free(h_internal_nodes);
+	int threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
+	int numBlock = (numLeafNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
+	init_nodes << <numBlock, threadPerBlock >> > (d_leaf_nodes, numLeafNode);
+
+
+	threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
+	numBlock = (numInternalNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
+	init_nodes << <numBlock, threadPerBlock >> > (d_internal_nodes, numInternalNode);
 }
 
 void BVHAccel::build()
@@ -216,8 +225,6 @@ void BVHAccel::build()
 	int numBlock = (numInternalNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
 	processInternalNode << <numBlock, threadPerBlock >> > (d_sorted_morton_code, numInternalNode,
 		d_leaf_nodes, d_internal_nodes);
-
-	//fix << <1, 1 >> > (d_leaf_nodes, d_internal_nodes);
 
 	//calculate bounding box
 	threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
@@ -232,13 +239,13 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_lea
 	d_primitives(nullptr),
 	d_sorted_morton_code(nullptr),
 	d_leaf_nodes(nullptr),
+#ifdef _DEBUG
 	h_leaf_nodes(nullptr),
-	d_internal_nodes(nullptr),
-	h_internal_nodes(nullptr)
+	h_internal_nodes(nullptr),
+#endif
+	d_internal_nodes(nullptr)
 
 {
-	stop_watch watch;
-	watch.start();
 	this->_primitives = input_primitives;
 
 	// edge case
@@ -248,7 +255,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_lea
 
 	compute_bbox_and_morton();
 
-	watch.start();
+
 	// remove duplicates
 	vector<unsigned int> indices;
 	indices_sort(_morton_codes, indices);
@@ -258,28 +265,14 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_lea
 	filter(_primitives, indices, _sorted_primitives);
 	filter(_bboxes, indices, _sorted_bboxes);
 
-	watch.stop();
-	cout << "bvh done free time elapsed: " << watch.elapsed() << "us" << endl;
-
+	// init	GPU data, including d_bboxes,d_primitives, d_sorted_morton_code,d_leaf_nodes, d_internal_nodes 
 	init();
 
+	// build the brt tree
 	build();
-
-	
 }
 
 BVHAccel::~BVHAccel() {  }
-
-void BVHAccel::freeHostMemory()
-{
-
-}
-void BVHAccel::freeDeviceMemory()
-{
-	//cudaFree(d_leaf_nodes);
-	//cudaFree(d_internal_nodes);
-	cudaFree(d_sorted_morton_code);
-}
 
 #ifdef _DEBUG
 BRTreeNode* BVHAccel::get_leaf_nodes()

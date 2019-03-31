@@ -8,6 +8,7 @@
 #include <fstream>
 
 #include "sim_parameter.h"
+#include "watch.h"
 
 using namespace std;
 
@@ -109,11 +110,19 @@ void Simulator::init_spring(Mesh& sim_cloth)
 
 void Simulator::init_bvh(Mesh& body)
 {
+	stop_watch watch;
+	watch.start();
 	Mesh bvh_body = body;   // for bvh consttruction
 	bvh_body.vertex_extend(0.003);
 
 	get_primitives(bvh_body, obj_vertices, h_primitives);
+	watch.stop();
+	cout << "bvh init done free time elapsed: " << watch.elapsed() << "us" << endl;
+
+	watch.restart();
 	BVHAccel* cuda_bvh = new BVHAccel(h_primitives);
+	watch.stop();
+	cout << "bvh build done free time elapsed: " << watch.elapsed() << "us" << endl;
 
 	d_leaf_nodes = cuda_bvh->d_leaf_nodes;
 	d_internal_nodes = cuda_bvh->d_internal_nodes;

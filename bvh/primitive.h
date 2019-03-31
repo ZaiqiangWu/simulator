@@ -30,8 +30,10 @@ public:
 
 	
 public:
-	const glm::vec3* vertices;  //for device, ptr to body vertices
-	const glm::vec3* d_vertices;
+#ifdef _DEBUG
+	const glm::vec3* vertices;  
+#endif
+	const glm::vec3* d_vertices;  //for device, ptr to body vertices
 	uint v0;
 	uint v1;
 	uint v2;

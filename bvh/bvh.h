@@ -66,9 +66,6 @@ private:
 	BRTreeNode* get_leaf_nodes();
 	BRTreeNode* get_internal_nodes();
 
-	void freeHostMemory();
-	void freeDeviceMemory();
-
 private:
 
 	// 添加一个辅助类，最终得到去重的morton code + primitive + bbox  ???
@@ -84,6 +81,11 @@ private:
 	BBox* d_bboxes;
 	MortonCode* d_sorted_morton_code;
 
+#ifdef _DEBUG
+	BRTreeNode* h_leaf_nodes;
+	BRTreeNode* h_internal_nodes;
+#endif
+
 public:
 
 	int numInternalNode;
@@ -93,9 +95,6 @@ public:
 	Primitive* d_primitives;
 	BRTreeNode* d_leaf_nodes;
 	BRTreeNode* d_internal_nodes;
-
-	BRTreeNode* h_leaf_nodes;
-	BRTreeNode* h_internal_nodes;
 };
 
 extern __device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx);

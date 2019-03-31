@@ -58,7 +58,8 @@ inline void copyFromGPUtoCPU(void** dst, void* src, int size)
 struct BRTreeNode
 {
 public:
-	BRTreeNode() :childA(0), childB(0), parent(0), idx(0), counter(0) {}
+	__host__ __device__
+	   BRTreeNode() :childA(0), childB(0), parent(0), idx(0), counter(0) {}
 
 	/*getters and setters for encoding and decoding*/
 	__host__ __device__
