@@ -39,6 +39,6 @@ void BBox::draw() const {
 
 void BBox::print() const
 {
-	cout << min.x << "  " << min.y << " " << min.z << ";  ";
-	cout << max.x << "  " << max.y << " " << max.z << endl;
+	cout << "min" << min.x << "  " << min.y << " " << min.z << ";  ";
+	cout << "max" << max.x << "  " << max.y << " " << max.z << endl;
 }

@@ -5,7 +5,7 @@
 #include "../ObjLoader.h"
 #include <vector> 
 
-
+using MortonCode = unsigned int;
 
 /**
 * Bounding Volume Hierarchy for fast point-objects intersection.
@@ -35,11 +35,6 @@ public:
 	*/
 	~BVHAccel();
 
-
-public:
-	std::vector<Primitive> primitives;
-	vector<glm::vec3> obj_vertices;
-
 #ifdef _DEBUG
 	BRTreeNode* get_root() const;
 	BRTreeNode* get_left_child(BRTreeNode* node) const;
@@ -50,6 +45,8 @@ public:
 
 	//显示包围盒之前需要调用，完成数据从GPU到CPU的拷贝
 	void pre_drawoutline();  //for test
+	void print(BRTreeNode* root, int depth, const int max_depth);
+	void print_leaf_parent();
 	void draw(BRTreeNode* root);
 	void access(BRTreeNode* root, vector<BRTreeNode*>& bad_bode);
 #endif
@@ -60,15 +57,31 @@ private:
 	unsigned int expandBits(unsigned int v);
 	unsigned int morton3D(float x, float y, float z);
 	unsigned int morton3D(glm::vec3 pos);
-	static bool mortonCompare(const Primitive& p1, const Primitive& p2);
 	void ParallelBVHFromBRTree(BRTreeNode* _d_leaf_nodes, BRTreeNode* _d_internal_nodes);
+	void compute_bbox_and_morton();
+	BBox computet_root_bbox(Primitive* d_tem_primitives);    // get root AABB size
 
+private:
+
+	// 添加一个辅助类，最终得到去重的morton code + primitive + bbox  ???
+	vector<BBox> _bboxes;
+	vector<BBox> _sorted_bboxes;
+
+	vector<MortonCode> _morton_codes;
+	vector<MortonCode> _sorted_morton_codes;
+
+	vector<Primitive> _primitives;
+	vector<Primitive> _sorted_primitives;
 
 public:
+	vector<glm::vec3> obj_vertices;
 
+public:
+	// external interface
 	Primitive* d_primitives;
 	BRTreeNode* d_leaf_nodes;
 	BRTreeNode* d_internal_nodes;
+
 	BRTreeNode* h_leaf_nodes;
 	BRTreeNode* h_internal_nodes;
 

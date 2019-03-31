@@ -2,10 +2,13 @@
 #include "primitive.h"
 #include "../watch.h"
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <bitset>
 #include <thrust/sort.h>
 #include <thrust/execution_policy.h>
+
+#include "../Utilities.h"
 
 using namespace std;
 extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
@@ -37,11 +40,6 @@ __device__ unsigned int d_morton3D(glm::vec3 p)
 }
 
 
-bool d_mortonCompare(const Primitive& p1, const Primitive& p2)
-{
-	return p1.morton_code < p2.morton_code;
-}
-
 __global__ void get_bb(int num, int m, Primitive* d_primitives,BBox* d_bb)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -65,40 +63,17 @@ __global__ void get_bb(int num, int m, Primitive* d_primitives,BBox* d_bb)
 		}
 		d_bb[index].expand(tem);
 	}
-	
-	__syncthreads();
-
-	//if (index == 0)
-	//{
-	//	for (int i = 0; i < num; i++)
-	//	{
-	//		d_bb[0].expand(d_bb[i]);
-	//	}
-	//	for (int i = m - res; i < m; i++)
-	//	{
-	//		d_bb[0].expand(d_primitives[i].d_get_bbox());
-	//	}
-	//}
 }
 
-__global__ void get_morton(int num, Primitive* d_primitives, BBox bb)
+__global__ void compute_morton_bbox(int num, Primitive* d_primitives, BBox bb, MortonCode* mortons, BBox* bboxes)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= num)
 		return;
 
 	unsigned int morton_code = d_morton3D(bb.getUnitcubePosOf(d_primitives[index].d_get_bbox().centroid()));
-	d_primitives[index].morton_code = morton_code;
-}
-
-__global__ void get_bb_morton(int num, BBox* d_bbox, unsigned int* d_morton, Primitive* d_primitives)
-{
-	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= num)
-		return;
-
-	d_bbox[index] = d_primitives[index].d_get_bbox();
-	d_morton[index] = d_primitives[index].morton_code;
+	mortons[index] = morton_code;
+	bboxes[index] = d_primitives[index].d_get_bbox();
 }
 
 // Expands a 10-bit integer into 30 bits
@@ -139,9 +114,69 @@ unsigned int BVHAccel::morton3D(glm::vec3 pos)
 * comparer used to sort primitives acoording
 * to their morton code.
 */
-bool BVHAccel::mortonCompare(const Primitive& p1, const Primitive& p2)
+
+
+BBox BVHAccel::computet_root_bbox(Primitive* d_tem_primitives)
 {
-	return p1.morton_code < p2.morton_code;
+	const unsigned int num_threads = 128;
+	vector<BBox> c_bb(num_threads + 1);
+	BBox* d_bb;
+	
+	copyFromCPUtoGPU((void**)&d_bb, &c_bb[0], sizeof(BBox)* c_bb.size());
+	get_bb << <1, c_bb.size() >> > (num_threads, _primitives.size(), d_tem_primitives, d_bb);
+
+	BBox* cc_bb, bb;
+	copyFromGPUtoCPU((void**)&cc_bb, d_bb, sizeof(BBox)*c_bb.size());
+	for (int i = 0; i < c_bb.size(); i++)
+	{
+		bb.expand(cc_bb[i]);
+	}
+
+	cudaFree(d_bb);
+
+	return bb;
+}
+
+void save(vector<Primitive>& primitives, string file_name)
+{
+	//ofstream outfile(file_name);
+	//outfile << "# morton code" << endl;
+	//for (auto pri: primitives)
+	//{
+	//	outfile << pri.morton_code << endl;   //数据写入文件
+	//}
+	//outfile.close();
+	//cout << "save done!" << endl;
+}
+
+void BVHAccel::compute_bbox_and_morton()
+{
+	Primitive* d_tem_primitives;
+	MortonCode* d_morton_codes;
+	BBox* d_bboxes;
+	_morton_codes.resize(_primitives.size());
+	_bboxes.resize(_primitives.size());
+
+	copyFromCPUtoGPU((void**)&d_tem_primitives, &_primitives[0], sizeof(Primitive)*_primitives.size());
+	copyFromCPUtoGPU((void**)&d_morton_codes, &_morton_codes[0], sizeof(MortonCode)*_morton_codes.size());
+	copyFromCPUtoGPU((void**)&d_bboxes, &_bboxes[0], sizeof(BBox)*_bboxes.size());
+
+	BBox bb = computet_root_bbox(d_tem_primitives);
+
+	unsigned int numThreads, numBlocks;
+	unsigned int blockSize = 512;
+	unsigned int n = _primitives.size();
+	numThreads = min(blockSize, n);
+	numBlocks = (n % numThreads != 0) ? (n / numThreads + 1) : (n / numThreads);
+
+	compute_morton_bbox << <numBlocks, numThreads >> > (n, d_tem_primitives, bb, d_morton_codes, d_bboxes);
+
+	cudaMemcpy(&_morton_codes[0], d_morton_codes, sizeof(MortonCode)*_morton_codes.size(), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&_bboxes[0], d_bboxes, sizeof(BBox)*_bboxes.size(), cudaMemcpyDeviceToHost);
+
+	cudaFree(d_tem_primitives);
+	cudaFree(d_morton_codes);
+	cudaFree(d_bboxes);
 }
 
 void BVHAccel::ParallelBVHFromBRTree(BRTreeNode* _d_leaf_nodes, BRTreeNode* _d_internal_nodes)
@@ -150,126 +185,38 @@ void BVHAccel::ParallelBVHFromBRTree(BRTreeNode* _d_leaf_nodes, BRTreeNode* _d_i
 	d_internal_nodes = _d_internal_nodes;
 }
 
-BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
+BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,
 	size_t max_leaf_size)
 {
 	stop_watch watch;
-	this->primitives = _primitives;
+	watch.start();
+	this->_primitives = input_primitives;
 
 	// edge case
-	if (primitives.empty()) {
+	if (_primitives.empty()) {
 		return;
 	}
 
-	// calculate root AABB size
-	watch.start();
-	const unsigned int num_threads = 128;
-	vector<BBox> c_bb(num_threads+1);
-	BBox* d_bb;
-	Primitive* d_tem_primitives;
-	copyFromCPUtoGPU((void**)&d_tem_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
-	copyFromCPUtoGPU((void**)&d_bb, &c_bb[0], sizeof(BBox)* c_bb.size());
-	get_bb <<<1, c_bb.size() >>> (num_threads, primitives.size(),d_tem_primitives, d_bb);
-	
-	BBox* cc_bb, bb;;
-	copyFromGPUtoCPU((void**)&cc_bb, d_bb, sizeof(BBox)*c_bb.size());
-	for (int i = 0; i < c_bb.size(); i++)
-	{
-		bb.expand(cc_bb[i]);
-	}
-	
-	watch.stop();
+	compute_bbox_and_morton();
 
-	watch.restart();
-	// calculate morton code for each primitives
-	/*for (size_t i = 0; i < primitives.size(); ++i) {
-		unsigned int morton_code = morton3D(bb.getUnitcubePosOf(primitives[i].get_bbox().centroid()));
-		primitives[i].morton_code = morton_code;
-	}*/
-	unsigned int numThreads, numBlocks;
-	unsigned int blockSize = 512;
-	unsigned int n = primitives.size();
-	numThreads = min(blockSize, n);
-	numBlocks = (n % numThreads != 0) ? (n / numThreads + 1) : (n / numThreads);
-	get_morton << <numBlocks, numThreads >> > (n,d_tem_primitives,bb);
-	
-	watch.stop();
-	//cout << "morton code time elapsed: " << watch.elapsed() << "us" << endl;
+	// remove duplicates
+	vector<unsigned int> indices;
+	indices_sort(_morton_codes, indices);
+	remove_redundant(_morton_codes, indices);
 
-	watch.restart();
-	// sort primitives using morton code -> use thrust::sort(parrallel sort)?
-	//std::sort(primitives.begin(), primitives.end(), mortonCompare);
-	cudaMemcpy(&primitives[0], d_tem_primitives, sizeof(Primitive)*primitives.size(), cudaMemcpyDeviceToHost);
-	//thrust::sort(thrust::host, primitives.begin(),primitives.end(), mortonCompare);
-	std::sort(primitives.begin(), primitives.end(), mortonCompare);    //cpu is faster than gpu, are u kidding me?
-	watch.stop();
-
-	cudaFree(d_tem_primitives);
-	cudaFree(d_bb);
-	
+	filter(_morton_codes, indices, _sorted_morton_codes);
+	filter(_primitives, indices, _sorted_primitives);
+	filter(_bboxes, indices, _sorted_bboxes);
 
 
-	watch.restart();
-	//remove duplicates
-	vector<Primitive> new_pri;
-	for (int i = 1; i < primitives.size(); i++)
-	{
-		new_pri.push_back(primitives[i - 1]);
-		while (primitives[i].morton_code == primitives[i - 1].morton_code)
-		{
-			i++;
-		}
-
-	}
-	primitives = new_pri;
-	watch.stop();
-
-	watch.restart();
-	
 	//whether to set h_vertices = NULL before send to gpu?
-	copyFromCPUtoGPU((void**)&d_primitives, &primitives[0], sizeof(Primitive)*primitives.size());
-
-	//unsigned int numThreads0, numBlocks0;
-	//int n = primitives.size();
-	//numThreads0 = min(512, n);
-	//numBlocks0 = (n % numThreads0 != 0) ? (n / numThreads0 + 1) : (n / numThreads0);
-	//extract_bboxes_mortonCode << < numBlocks, numThreads >> > (n,);
-
-	// extract bboxes array // extract sorted morton code for parallel binary radix tree construction
-	std::vector<BBox> bboxes(primitives.size());
-	vector<unsigned int> sorted_morton_codes(primitives.size());
-	/*for (int i = 0; i < primitives.size(); i++)
-	{
-		bboxes[i] = primitives[i].get_bbox();
-		sorted_morton_codes[i] = primitives[i].morton_code;
-	}*/
-	
-	blockSize = 512;
-	n = primitives.size();
-	numThreads = min(blockSize, n);
-	numBlocks = (n % numThreads != 0) ? (n / numThreads + 1) : (n / numThreads);
-	BBox* d_tem_bbox;
-	unsigned int* d_tem_morton;
-	copyFromCPUtoGPU((void**)&d_tem_bbox, &bboxes[0], sizeof(BBox)*primitives.size());  //just cudaMalloc
-	copyFromCPUtoGPU((void**)&d_tem_morton, &sorted_morton_codes[0], sizeof(unsigned int)*primitives.size());
-
-	get_bb_morton << <numBlocks, numThreads >> > (n, d_tem_bbox, d_tem_morton, d_primitives);
-
-	cudaMemcpy(&bboxes[0], d_tem_bbox, sizeof(BBox)*primitives.size(), cudaMemcpyDeviceToHost);
-	cudaMemcpy(&sorted_morton_codes[0], d_tem_morton, sizeof(unsigned int)*primitives.size(), cudaMemcpyDeviceToHost);
-	watch.stop();
-	//cout << "others time elapsed: " << watch.elapsed() << "us" << endl;
-
+	copyFromCPUtoGPU((void**)&d_primitives, &_sorted_primitives[0], sizeof(Primitive)*_sorted_primitives.size());
 
 	// delegate the binary radix tree construction process to GPU
 	//cout << "start building parallel brtree" << endl;
-	watch.restart();
-	ParallelBRTreeBuilder builder(&sorted_morton_codes[0], &bboxes[0], primitives.size());
+	ParallelBRTreeBuilder builder(&_sorted_morton_codes[0], &_sorted_bboxes[0], _sorted_primitives.size());
 	builder.build();
-	watch.stop();
-	//cout << "done with time elapsed: " << watch.elapsed() << "us" << endl;
 
-	watch.restart();
 	numInternalNode = builder.numInternalNode;
 	numLeafNode = builder.numLeafNode;
 	// construct BVH based on Binary Radix Tree --> need to be built in gpu?
@@ -280,8 +227,9 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &_primitives,
 	// free the host memory because I am a good programmer
 	builder.freeDeviceMemory();
 	builder.freeHostMemory();
+
 	watch.stop();
-	//cout << "free time elapsed: " << watch.elapsed() << "us" << endl;
+	cout << "bvh done free time elapsed: " << watch.elapsed() << "us" << endl;
 }
 
 BVHAccel::~BVHAccel() {  }
@@ -423,12 +371,121 @@ void BVHAccel::pre_drawoutline()
 	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_leaf_nodes, sizeof(BRTreeNode)*numLeafNode);
 
 }
-void BVHAccel::draw(BRTreeNode* root)
-{
 
-	root->bbox.draw();
+void BVHAccel::print_leaf_parent()
+{
+	// check laf_node
+	for (int i = 0; i < numLeafNode; i++)
+	{
+		auto box = h_leaf_nodes[i].bbox;
+		if (box.min == glm::vec3(100, 100, 100) || box.max == glm::vec3(-100, -100, -100))
+		{
+			box.print();
+		}
+
+		auto leaf = h_leaf_nodes[i];
+		bool is_null = false;
+		auto parent_id = leaf.getParent(is_null);
+		auto box2 = h_internal_nodes[parent_id].bbox;
+		if (box2.min == glm::vec3(100, 100, 100) || box2.max == glm::vec3(-100, -100, -100) || i==0 || i==1)
+		{
+			bool is_leaf = false;
+			bool is_null = false;
+			auto left_id = h_internal_nodes[parent_id].getChildA(is_leaf, is_null);
+			
+			cout << parent_id << " ";
+			cout << " left " << left_id;
+			if (is_leaf)
+			{
+				cout << "leaf";
+				h_leaf_nodes[left_id].bbox.print();
+			}
+			else
+			{
+				h_internal_nodes[left_id].bbox.print();
+			}
+			
+
+			is_leaf = false;
+			is_null = false;
+			auto right_id = h_internal_nodes[parent_id].getChildB(is_leaf, is_null);
+			cout << " right " << right_id;
+
+			if (is_leaf)
+			{
+				cout << "leaf";
+				h_leaf_nodes[right_id].bbox.print();
+			}
+			else
+			{
+				h_internal_nodes[right_id].bbox.print();
+			}
+
+			//box2.print();
+
+		}
+	}
+
+
+}
+
+void BVHAccel::print(BRTreeNode* root, int depth, const int max_depth)
+{
+	depth++;
+	if (depth > max_depth)
+		return;
+	bool is_null = false;
+	cout << root->getIdx() << " " << root->getParent(is_null);
+	root->bbox.print();
+
 	if (is_leaf(root))
 	{
+		return;
+	}
+	else
+	{
+		is_null = false;
+		cout << " left:" << get_left_child(root)->getIdx() << " " << get_left_child(root)->getParent(is_null);  get_left_child(root)->bbox.print();
+		is_null = false;
+		cout << " right:" << get_right_child(root)->getIdx() << " "<<  get_right_child(root)->getParent(is_null);  get_right_child(root)->bbox.print();
+
+		print(get_left_child(root),depth +1, max_depth);
+		print(get_right_child(root), depth + 1, max_depth);
+	}
+}
+
+void BVHAccel::draw(BRTreeNode* root)
+{
+	//root->bbox.draw();
+	bool is_null = false;
+	cout << root->getIdx() << " parent_id: " << root->getParent(is_null) << "  ";
+
+	bool is_leaf_a = false;
+	bool is_null_a = false;
+	bool is_null_b = false;
+	int  child_idx_a = false;
+	int  child_idx_b = false;
+	child_idx_a = root->getChildA(is_leaf_a, is_null_a);
+	cout << "left_id " << child_idx_a << " is_leaf_a" << is_leaf_a;
+
+	child_idx_b = root->getChildB(is_leaf_a, is_null_b);
+	cout << "right_id " << child_idx_b << " is_leaf_a" << is_leaf_a;
+	root->bbox.print();
+
+	if (is_leaf(root))
+	{
+		//cout << "is_leaf";
+		//bool is_leaf = false;
+		//bool is_null_a = false;
+		//bool is_null_b = false;
+		//int  child_idx_a = false;
+		//int  child_idx_b = false;
+		//child_idx_a = root->getChildA(is_leaf, is_null_a);
+		//cout << "left_id " << child_idx_a << " is_leaf" << is_leaf;
+
+		//child_idx_b = root->getChildB(is_leaf, is_null_b);
+		//cout << "right_id " << child_idx_b << " is_leaf" << is_leaf;
+
 		return;
 	}
 	else
