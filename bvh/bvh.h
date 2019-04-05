@@ -47,9 +47,8 @@ public:
 	bool check_overlap(const glm::vec3 point, BRTreeNode* node) const;
 
 	//显示包围盒之前需要调用，完成数据从GPU到CPU的拷贝
-	void pre_drawoutline();  //for test
+	void copy_data_gpu_to_cpu();  //for test
 	void print(BRTreeNode* root, int depth, const int max_depth);
-	void print_leaf_parent();
 	void draw(BRTreeNode* root);
 	void access(BRTreeNode* root, vector<BRTreeNode*>& bad_bode);
 #endif
@@ -96,19 +95,7 @@ private:
 #endif
 
 public:
-
 	// external interface
-	Primitive* d_primitives;
-	BRTreeNode* d_leaf_nodes;
-	BRTreeNode* d_internal_nodes;
+	D_BVH* d_bvh;
+	
 };
-
-extern __device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx);
-extern __device__ BRTreeNode*  get_root(BRTreeNode* leaf_nodes, BRTreeNode* internal_nodes);
-extern __device__ BRTreeNode*  get_left_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node);
-extern __device__ BRTreeNode*  get_right_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node);
-extern __device__ bool  is_leaf(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node);
-extern __device__ bool  check_overlap(const glm::vec3 point, BRTreeNode* node);
-
-
-

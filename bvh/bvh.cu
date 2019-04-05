@@ -53,7 +53,7 @@ __global__ void get_bb(int num, int m, Primitive* d_primitives, BBox* d_bb)
 		BBox tem_bbox;
 		for (int i = m - res; i < m; i++)
 		{
-			tem_bbox.expand(d_primitives[i].d_get_bbox());
+			tem_bbox.expand(d_primitives[i].d_get_expand_bbox());
 		}
 		d_bb[index] = tem_bbox;
 	}
@@ -62,7 +62,7 @@ __global__ void get_bb(int num, int m, Primitive* d_primitives, BBox* d_bb)
 		BBox tem_bbox;
 		for (int i = 0; i < div; i++)  //use shared to replace
 		{
-			tem_bbox.expand(d_primitives[i*num + index].d_get_bbox());
+			tem_bbox.expand(d_primitives[i*num + index].d_get_expand_bbox());
 		}
 		d_bb[index].expand(tem_bbox);
 	}
@@ -73,7 +73,7 @@ __global__ void compute_morton_bbox(int num, Primitive* d_primitives, BBox bb, M
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= num)
 		return;
-	BBox tem_bbox = d_primitives[index].d_get_bbox();
+	BBox tem_bbox = d_primitives[index].d_get_expand_bbox();
 	bboxes[index] = tem_bbox;
 	mortons[index] = d_morton3D(bb.getUnitcubePosOf(tem_bbox.centroid()));
 }
@@ -196,27 +196,29 @@ __global__ void init_nodes(BRTreeNode* _nodes,const unsigned int num)
 
 void BVHAccel::init()
 {
+	d_bvh = new D_BVH();
+
 	auto size = _sorted_primitives.size();
 	numInternalNode = size - 1;
 	numLeafNode = size;
 
 	//whether to set h_vertices = NULL before send to gpu?
-	copyFromCPUtoGPU((void**)&d_primitives, &_sorted_primitives[0], sizeof(Primitive)*_sorted_primitives.size());
+	copyFromCPUtoGPU((void**)&d_bvh->d_primitives, &_sorted_primitives[0], sizeof(Primitive)*_sorted_primitives.size());
 	copyFromCPUtoGPU((void**)&d_sorted_morton_code, &_sorted_morton_codes[0], sizeof(MortonCode)*_sorted_morton_codes.size());
 	copyFromCPUtoGPU((void**)&d_bboxes, &_sorted_bboxes[0], sizeof(BBox)*_sorted_bboxes.size());
 
 	//initialize d_leaf_nodes and d_internal_nodes: with a parallel way? ?????
-	cudaMalloc((void**)&d_leaf_nodes, numLeafNode * sizeof(BRTreeNode));
-	cudaMalloc((void**)&d_internal_nodes, numInternalNode * sizeof(BRTreeNode));
+	cudaMalloc((void**)&d_bvh->d_leaf_nodes, numLeafNode * sizeof(BRTreeNode));
+	cudaMalloc((void**)&d_bvh->d_internal_nodes, numInternalNode * sizeof(BRTreeNode));
 
 	int threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
 	int numBlock = (numLeafNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
-	init_nodes << <numBlock, threadPerBlock >> > (d_leaf_nodes, numLeafNode);
+	init_nodes << <numBlock, threadPerBlock >> > (d_bvh->d_leaf_nodes, numLeafNode);
 
 
 	threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
 	numBlock = (numInternalNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
-	init_nodes << <numBlock, threadPerBlock >> > (d_internal_nodes, numInternalNode);
+	init_nodes << <numBlock, threadPerBlock >> > (d_bvh->d_internal_nodes, numInternalNode);
 }
 
 void BVHAccel::build()
@@ -225,13 +227,13 @@ void BVHAccel::build()
 	int threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
 	int numBlock = (numInternalNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
 	processInternalNode << <numBlock, threadPerBlock >> > (d_sorted_morton_code, numInternalNode,
-		d_leaf_nodes, d_internal_nodes);
+		d_bvh->d_leaf_nodes, d_bvh->d_internal_nodes);
 
 	//calculate bounding box
 	threadPerBlock = DEFAULT_THREAD_PER_BLOCK;
 	numBlock = (numLeafNode + DEFAULT_THREAD_PER_BLOCK - 1) / threadPerBlock;
 	calculateBoudingBox << <numBlock, threadPerBlock >> > (d_bboxes, numLeafNode,
-		d_leaf_nodes, d_internal_nodes);
+		d_bvh->d_leaf_nodes, d_bvh->d_internal_nodes);
 }
 
 void BVHAccel::init_primitives(Mesh& body)
@@ -262,15 +264,11 @@ void BVHAccel::init_primitives(Mesh& body)
 BVHAccel::BVHAccel(Mesh& body, size_t max_leaf_size):
 
 	d_bboxes(nullptr),
-	d_primitives(nullptr),
-	d_sorted_morton_code(nullptr),
-	d_leaf_nodes(nullptr),
 #ifdef _DEBUG
 	h_leaf_nodes(nullptr),
 	h_internal_nodes(nullptr),
 #endif
-	d_internal_nodes(nullptr)
-
+	d_sorted_morton_code(nullptr)
 {
 	init_primitives(body);
 
@@ -306,12 +304,12 @@ BVHAccel::~BVHAccel()
 #ifdef _DEBUG
 BRTreeNode* BVHAccel::get_leaf_nodes()
 {
-	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_leaf_nodes, numLeafNode * sizeof(BRTreeNode));
+	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_bvh->d_leaf_nodes, numLeafNode * sizeof(BRTreeNode));
 	return h_leaf_nodes;
 }
 BRTreeNode* BVHAccel::get_internal_nodes()
 {
-	copyFromGPUtoCPU((void**)&h_internal_nodes, d_internal_nodes, numInternalNode * sizeof(BRTreeNode));
+	copyFromGPUtoCPU((void**)&h_internal_nodes, d_bvh->d_internal_nodes, numInternalNode * sizeof(BRTreeNode));
 	return h_internal_nodes;
 }
 BRTreeNode* BVHAccel::get_root() const
@@ -443,70 +441,14 @@ void BVHAccel::access(BRTreeNode* root, vector<BRTreeNode*>& bad_bode)
 
 
 }
-void BVHAccel::pre_drawoutline()
+void BVHAccel::copy_data_gpu_to_cpu()
 {
-	copyFromGPUtoCPU((void**)&h_internal_nodes, d_internal_nodes, sizeof(BRTreeNode)*numInternalNode);
-	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_leaf_nodes, sizeof(BRTreeNode)*numLeafNode);
+	copyFromGPUtoCPU((void**)&h_internal_nodes, d_bvh->d_internal_nodes, sizeof(BRTreeNode)*numInternalNode);
+	copyFromGPUtoCPU((void**)&h_leaf_nodes, d_bvh->d_leaf_nodes, sizeof(BRTreeNode)*numLeafNode);
 
 }
 
-void BVHAccel::print_leaf_parent()
-{
-	// check laf_node
-	for (int i = 0; i < numLeafNode; i++)
-	{
-		auto box = h_leaf_nodes[i].bbox;
-		if (box.min == glm::vec3(100, 100, 100) || box.max == glm::vec3(-100, -100, -100))
-		{
-			box.print();
-		}
-
-		auto leaf = h_leaf_nodes[i];
-		bool is_null = false;
-		auto parent_id = leaf.getParent(is_null);
-		auto box2 = h_internal_nodes[parent_id].bbox;
-		if (box2.min == glm::vec3(100, 100, 100) || box2.max == glm::vec3(-100, -100, -100) || i==0 || i==1)
-		{
-			bool is_leaf = false;
-			bool is_null = false;
-			auto left_id = h_internal_nodes[parent_id].getChildA(is_leaf, is_null);
-			
-			cout << parent_id << " ";
-			cout << " left " << left_id;
-			if (is_leaf)
-			{
-				cout << "leaf";
-				h_leaf_nodes[left_id].bbox.print();
-			}
-			else
-			{
-				h_internal_nodes[left_id].bbox.print();
-			}
-			
-
-			is_leaf = false;
-			is_null = false;
-			auto right_id = h_internal_nodes[parent_id].getChildB(is_leaf, is_null);
-			cout << " right " << right_id;
-
-			if (is_leaf)
-			{
-				cout << "leaf";
-				h_leaf_nodes[right_id].bbox.print();
-			}
-			else
-			{
-				h_internal_nodes[right_id].bbox.print();
-			}
-
-			//box2.print();
-
-		}
-	}
-
-
-}
-
+// call copy_data_gpu_to_cpu() before print
 void BVHAccel::print(BRTreeNode* root, int depth, const int max_depth)
 {
 	depth++;
@@ -532,6 +474,7 @@ void BVHAccel::print(BRTreeNode* root, int depth, const int max_depth)
 	}
 }
 
+// call copy_data_gpu_to_cpu() before draw
 void BVHAccel::draw(BRTreeNode* root)
 {
 	//root->bbox.draw();
@@ -574,111 +517,5 @@ void BVHAccel::draw(BRTreeNode* root)
 }
 #endif
 
-// GPU version for bvh tree 
-__device__ bool  intersect(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, const glm::vec3 point, int& idx)
-{
-	// Allocate traversal stack from thread-local memory,
-	// and push NULL to indicate that there are no postponed nodes.
-	BRTreeNode* stack[64];
-	BRTreeNode** stackPtr = stack;
-	*stackPtr++ = NULL; // push
 
-						// Traverse nodes starting from the root.
-	BRTreeNode* node = get_root(leaf_nodes, internal_nodes);
-	do
-	{
-		// Check each child node for overlap.
-		BRTreeNode* childA = get_left_child(leaf_nodes, internal_nodes, node);
-		BRTreeNode* childB = get_right_child(leaf_nodes, internal_nodes, node);
-		bool overlapL = check_overlap(point, childA);
-		bool overlapR = check_overlap(point, childB);
 
-		// Query overlaps a leaf node => report collision with the first collision.
-		if (overlapL && is_leaf(leaf_nodes, internal_nodes, childA))
-		{
-			idx = childA->getIdx();       //is a leaf, and we can get it through primitive[idx]
-			return true;
-		}
-
-		if (overlapR && is_leaf(leaf_nodes, internal_nodes, childB))
-		{
-			idx = childB->getIdx();
-			return true;
-		}
-
-		// Query overlaps an internal node => traverse.
-		bool traverseL = (overlapL && !is_leaf(leaf_nodes, internal_nodes, childA));
-		bool traverseR = (overlapR && !is_leaf(leaf_nodes, internal_nodes, childB));
-
-		if (!traverseL && !traverseR)
-			node = *--stackPtr; // pop
-		else
-		{
-			node = (traverseL) ? childA : childB;
-			if (traverseL && traverseR)
-				*stackPtr++ = childB; // push
-		}
-	} while (node != NULL);
-
-	return false;
-}
-__device__ BRTreeNode*  get_root(BRTreeNode* leaf_nodes, BRTreeNode* internal_nodes)
-{
-	return &internal_nodes[0];
-}
-__device__ BRTreeNode*  get_left_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
-{
-	bool is_leaf = false;
-	bool is_null = false;
-	int  child_idx = false;
-	child_idx = node->getChildA(is_leaf, is_null);
-	if (!is_null)
-	{
-		if (is_leaf)
-		{
-			return &leaf_nodes[child_idx];
-		}
-		else
-		{
-			return &internal_nodes[child_idx];
-		}
-	}
-	else
-		return nullptr;
-}
-__device__ BRTreeNode*  get_right_child(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
-{
-	bool is_leaf = false;
-	bool is_null = false;
-	int  child_idx = false;
-	child_idx = node->getChildB(is_leaf, is_null);
-	if (!is_null)
-	{
-		if (is_leaf)
-		{
-			return &leaf_nodes[child_idx];
-		}
-		else
-		{
-			return &internal_nodes[child_idx];
-		}
-	}
-	else
-		return nullptr;
-}
-__device__ bool  is_leaf(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, BRTreeNode* node)
-{
-	bool is_leaf = false;
-	bool is_null_a = false;
-	bool is_null_b = false;
-	node->getChildA(is_leaf, is_null_a);
-	node->getChildB(is_leaf, is_null_b);
-
-	if (is_null_a && is_null_b)
-		return true;
-	return false;
-}
-__device__ bool  check_overlap(const glm::vec3 point, BRTreeNode* node)
-{
-	return node->bbox.intersect(point);
-}

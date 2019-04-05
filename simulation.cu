@@ -17,7 +17,7 @@ __global__ void compute_face_normal(glm::vec3* g_pos_in, unsigned int* cloth_ind
 __global__ void verlet(glm::vec3 * g_pos_in, glm::vec3 * g_pos_old_in, glm::vec3 * g_pos_out, glm::vec3 * g_pos_old_out,glm::vec3* const_pos,
 						s_spring* neigh1, s_spring* neigh2,
 					  const unsigned int NUM_VERTICES,
-					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* d_collision_force);  //verlet intergration
+					  D_BVH bvh, glm::vec3* d_collision_force);  //verlet intergration
 __global__ void update_vbo_pos(glm::vec4* pos_vbo, glm::vec3* pos_cur, const unsigned int NUM_VERTICES);
 __global__ void compute_vbo_normal(glm::vec3* normals, unsigned int* vertex_adjface, glm::vec3* face_normal, const unsigned int NUM_VERTICES);
 
@@ -115,13 +115,9 @@ void Simulator::build_bvh(Mesh& body)
 	bvh_body.vertex_extend(0.003);
 
 	watch.start();
-	BVHAccel* cuda_bvh = new BVHAccel(bvh_body);
+	cuda_bvh = new BVHAccel(bvh_body);
 	watch.stop();
 	cout << "bvh build done free time elapsed: " << watch.elapsed() << "us" << endl;
-
-	d_leaf_nodes = cuda_bvh->d_leaf_nodes;
-	d_internal_nodes = cuda_bvh->d_internal_nodes;
-	d_primitives = cuda_bvh->d_primitives;
 }
 
 
@@ -171,7 +167,7 @@ void Simulator::cuda_verlet(const unsigned int numParticles)
 	verlet <<< numBlocks, numThreads >>>(x_cur_in,x_last_in, x_cur_out, x_last_out,x_original,
 										d_adj_structure_spring,d_adj_bend_spring,							
 										numParticles,
-										d_leaf_nodes,d_internal_nodes,d_primitives, d_collision_force);
+										*cuda_bvh->d_bvh, d_collision_force);
 
 	// stop the CPU until the kernel has been executed
 	safe_cuda(cudaDeviceSynchronize());

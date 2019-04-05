@@ -53,5 +53,8 @@ private:
 	// pre-malloc for nomal computation
 	glm::vec3* d_collision_force;           // store the normal of the face if collided, or set 0.0 if no collision
 	unsigned int* d_adjface_to_vertex;       //To compute each point's normal, we need the adjacent face indices of each point  
+
+public:
+	BVHAccel* cuda_bvh;
 };
 

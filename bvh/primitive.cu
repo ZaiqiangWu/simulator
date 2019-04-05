@@ -6,10 +6,17 @@ Primitive::Primitive(const glm::vec3* _vertices, const glm::vec3* _d_vertices, c
 
 BBox Primitive::get_bbox() const
 {
-	BBox bbox(vertices[v0]);
+	BBox bbox = (vertices[v0]);
 	bbox.expand(vertices[v1]);
 	bbox.expand(vertices[v2]);
 
+	return bbox;
+}
+
+BBox Primitive::get_expand_bbox() const
+{
+	BBox bbox = get_bbox();
+	
 	//沿着法线方向适当拓展或收缩三角面片,后期改为点的各自法线方向
 	float depth = 0.01;
 	glm::vec3 n = get_normal();
@@ -26,6 +33,13 @@ BBox  Primitive::d_get_bbox() const
 	bbox.expand(d_vertices[v1]);
 	bbox.expand(d_vertices[v2]);
 
+	return bbox;
+}
+
+BBox  Primitive::d_get_expand_bbox() const
+{
+	BBox bbox = d_get_bbox();
+	
 	//沿着法线方向适当拓展或收缩三角面片,后期改为点的各自法线方向
 	float depth = 0.01;
 	glm::vec3 n = d_get_normal();

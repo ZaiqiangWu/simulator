@@ -2,6 +2,8 @@
 #include<cuda_runtime.h>
 #include "bbox.h"
 #include "../common.h"
+#include "./primitive.h"
+
 
 #define DEFAULT_THREAD_PER_BLOCK 1024
 
@@ -128,6 +130,33 @@ private:
 	int childB;
 	int parent;
 	int idx;
+};
+
+class D_BVH
+{
+public:
+	__host__ __device__
+		D_BVH();
+	__host__ __device__
+		D_BVH(Primitive* _d_primitives,
+			BRTreeNode* _d_leaf_nodes,
+			BRTreeNode* _d_internal_nodes);
+	__host__ __device__
+		~D_BVH();
+
+	__device__ bool  intersect(const glm::vec3 point, int& idx);
+	__device__ bool  primitive_intersect(unsigned int idx, const glm::vec3 pos, float& dist, glm::vec3& normal);
+	__device__ BRTreeNode*  get_root();
+	__device__ BRTreeNode*  get_left_child(BRTreeNode* node);
+	__device__ BRTreeNode*  get_right_child(BRTreeNode* node);
+	__device__ bool  is_leaf(BRTreeNode* node);
+	__device__ bool  check_overlap(const glm::vec3 point, BRTreeNode* node);
+	
+
+public:
+	Primitive* d_primitives;
+	BRTreeNode* d_leaf_nodes;
+	BRTreeNode* d_internal_nodes;
 };
 
 

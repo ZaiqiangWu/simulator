@@ -13,7 +13,9 @@ public:
 	* Get the world space bounding box of the primitive.
 	* \return world space bounding box of the primitive
 	*/
-	BBox get_bbox() const ;
+	BBox get_expand_bbox() const ;
+	BBox get_bbox() const;
+	__device__ BBox d_get_expand_bbox() const;
 	__device__ BBox d_get_bbox() const;
 
 	/**

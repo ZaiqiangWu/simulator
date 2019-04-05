@@ -22,17 +22,17 @@ __constant__ float gravit_y = -0.00981f;   // in y dir
 __constant__ float gravit_z = 0.0f;   // in y dir
 
 
-__device__ void collision_response_projection(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,
+__device__ void collision_response_projection(D_BVH bvh,
 	glm::vec3& force, glm::vec3& pos, glm::vec3& pos_old,
 	int idx, glm::vec3* collision_force)
 {
 	int idx_pri;
-	bool inter = intersect(leaf_nodes, internal_nodes, pos, idx_pri);
+	bool inter = bvh.intersect(pos, idx_pri);
 	if (inter)
 	{
 		float dist;
 		glm::vec3 normal;
-		if (primitives[idx_pri].d_intersect(pos, dist, normal))  //primitives[idx_pri].d_intersect(pos, dist, normal)
+		if (bvh.primitive_intersect(idx_pri, pos, dist, normal))  // check the point inside the primitive or not
 		{
 			float k = 1.0;
 			dist = k*glm::abs(dist);    // //collision response with penalty force
@@ -132,13 +132,12 @@ __global__ void update_vbo_pos(glm::vec4* pos_vbo, glm::vec3* pos_cur, const uns
 
 __global__ void verlet(glm::vec3 * g_pos_in, glm::vec3 * g_pos_old_in, glm::vec3 * g_pos_out, glm::vec3 * g_pos_old_out, glm::vec3* const_pos,
 						s_spring* neigh1, s_spring* neigh2,
-					  const unsigned int NUM_VERTICES,
-					BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives, glm::vec3* collision_force)
+					    const unsigned int NUM_VERTICES,
+						D_BVH bvh, glm::vec3* collision_force)
 {
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= NUM_VERTICES)
 		return;
-
 	
 	volatile glm::vec3 posData = g_pos_in[index];
 	volatile glm::vec3 posOldData = g_pos_old_in[index];
@@ -159,7 +158,7 @@ __global__ void verlet(glm::vec3 * g_pos_in, glm::vec3 * g_pos_old_in, glm::vec3
 	glm::vec3 tmp = pos;          
 	pos = pos + pos - pos_old + acc * dt * dt;   
 	pos_old = tmp;
-	collision_response_projection(leaf_nodes, internal_nodes, primitives, force, pos, pos_old, index, collision_force);
+	collision_response_projection(bvh, force, pos, pos_old, index, collision_force);
 
 	g_pos_out[index] = pos;
 	g_pos_old_out[index] = pos_old;

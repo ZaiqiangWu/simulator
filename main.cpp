@@ -14,6 +14,7 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
+	//D_BVH* p;
 	/*cmdline::parser a;
 	a.add<string>("cloth", 'c', "cloth file", true, "");
 	a.parse_check(argc, argv);
