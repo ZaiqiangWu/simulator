@@ -13,11 +13,12 @@
 using namespace std;
 
 __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, const unsigned int cloth_index_size, glm::vec3* cloth_face);   //update cloth face normal
-__global__ void verlet(glm::vec4* pos_vbo, glm::vec4 * g_pos_in, glm::vec4 * g_pos_old_in, glm::vec4 * g_pos_out, glm::vec4 * g_pos_old_out,glm::vec4* const_pos,
+__global__ void verlet(glm::vec4 * g_pos_in, glm::vec4 * g_pos_old_in, glm::vec4 * g_pos_out, glm::vec4 * g_pos_old_out,glm::vec4* const_pos,
 						s_spring* neigh1, s_spring* neigh2,
-					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
 					  const unsigned int NUM_VERTICES,
 					  BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,glm::vec3* d_collision_force);  //verlet intergration
+__global__ void update_vbo_pos(glm::vec4* pos_vbo, glm::vec4* pos_cur, const unsigned int NUM_VERTICES);
+__global__ void update_vbo_normal(glm::vec3* normals, unsigned int* vertex_adjface, glm::vec3* face_normal, const unsigned int NUM_VERTICES);
 
 Simulator::Simulator()
 {
@@ -161,6 +162,7 @@ void Simulator::simulate(Mesh* sim_cloth)
 	glm::vec4* d_vbo_vertex;           //point to vertex address in the OPENGL buffer
 	glm::vec3* d_vbo_normal;           //point to normal address in the OPENGL buffer
 	unsigned int* d_adjvertex_to_face;    // the order like this: f0(v0,v1,v2) -> f1(v0,v1,v2) -> ... ->fn(v0,v1,v2)
+	unsigned int numParticles = sim_cloth->vertices.size();
 
 	cudaError_t cudaStatus = cudaGraphicsMapResources(1, &d_vbo_array_resource);
 	cudaStatus = cudaGraphicsMapResources(1, &d_vbo_index_resource);
@@ -169,8 +171,13 @@ void Simulator::simulate(Mesh* sim_cloth)
 	d_vbo_normal = (glm::vec3*)((float*)d_vbo_vertex + 4 * sim_cloth->vertices.size() + 2 * sim_cloth->tex.size());   // 获取normal位置指针
 
 	//cuda kernel compute .........
-	cuda_get_face_normal(sim_cloth, d_adjvertex_to_face);
+	
 	cuda_verlet(sim_cloth, d_vbo_vertex, d_vbo_normal);
+
+	cuda_get_face_normal(sim_cloth, d_adjvertex_to_face);
+
+	cuda_update_vbo(d_vbo_vertex, x_cur_out, d_vbo_normal, d_adjface_to_vertex, d_face_normals, numParticles);     // update array buffer for opengl
+
 	swap_buffer();
 
 	cudaStatus = cudaGraphicsUnmapResources(1, &d_vbo_index_resource);
@@ -222,9 +229,8 @@ void Simulator::cuda_verlet(Mesh* sim_cloth, glm::vec4* d_vbo_vertex, glm::vec3*
 	unsigned int numParticles = sim_cloth->vertices.size();
 	
 	computeGridSize(numParticles, 512, numBlocks, numThreads);
-	verlet <<< numBlocks, numThreads >>>(d_vbo_vertex, x_cur_in,x_last_in, x_cur_out, x_last_out,x_original,
-										d_adj_structure_spring,d_adj_bend_spring,
-										d_vbo_normal,d_adjface_to_vertex,d_face_normals,
+	verlet <<< numBlocks, numThreads >>>(x_cur_in,x_last_in, x_cur_out, x_last_out,x_original,
+										d_adj_structure_spring,d_adj_bend_spring,							
 										numParticles,
 										d_leaf_nodes,d_internal_nodes,d_primitives, d_collision_force);
 
@@ -233,6 +239,39 @@ void Simulator::cuda_verlet(Mesh* sim_cloth, glm::vec4* d_vbo_vertex, glm::vec3*
 	if (cudaStatus != cudaSuccess)
 	{
 		fprintf(stderr, "verlet cudaDeviceSynchronize returned error code %d after launching addKernel!\n%s\n",
+			cudaStatus, cudaGetErrorString(cudaStatus));
+		exit(-1);
+	}
+}
+
+void Simulator::cuda_update_vbo(glm::vec4* pos_vbo, glm::vec4* pos_cur, glm::vec3* normals, unsigned int* vertex_adjface, glm::vec3* face_normal, const unsigned int numParticles)
+{
+	// update vertex position
+	unsigned int numThreads, numBlocks;
+
+	computeGridSize(numParticles, 512, numBlocks, numThreads);
+	update_vbo_pos << < numBlocks, numThreads >> > (pos_vbo, pos_cur, numParticles);
+
+	// stop the CPU until the kernel has been executed
+	cudaError_t cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess)
+	{
+		fprintf(stderr, "update_vbo_pos cudaDeviceSynchronize returned error code %d after launching addKernel!\n%s\n",
+			cudaStatus, cudaGetErrorString(cudaStatus));
+		exit(-1);
+	}
+
+	// update vertex normal
+
+	unsigned int numThreads1, numBlocks1;
+
+	computeGridSize(numParticles, 1024, numBlocks1, numThreads1);
+	update_vbo_normal << < numBlocks1, numThreads1 >> > (normals, vertex_adjface, face_normal,numParticles);
+
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess)
+	{
+		fprintf(stderr, "update_vbo_normal cudaDeviceSynchronize returned error code %d after launching addKernel!\n%s\n",
 			cudaStatus, cudaGetErrorString(cudaStatus));
 		exit(-1);
 	}

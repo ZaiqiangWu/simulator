@@ -13,6 +13,8 @@ public:
 	~Simulator();
 	Simulator(Mesh& cloth,Mesh& body);
 	void simulate(Mesh* cloth);
+	void cuda_update_vbo(glm::vec4* pos_vbo, glm::vec4* pos_cur, glm::vec3* normals, unsigned int* vertex_adjface, glm::vec3* face_normal, const unsigned int NUM_VERTICES);
+
 
 private:
 	void init_cloth(Mesh& cloth);
@@ -55,7 +57,7 @@ private:
 	glm::vec3* d_face_normals;        // face(triangle) normal	
 
 public:
-	vector<glm::vec3> obj_vertices;
+	vector<glm::vec3> obj_vertices;  // seems redundant
 	vector<Primitive> h_primitives;     // host primitives for cuda_bvh construction
 };
 

@@ -17,6 +17,10 @@ __constant__ float damp = -0.02f;
 __constant__ float mass = 0.3;
 __constant__ float dt = 1 / 40.0f;
 
+__constant__ float gravit_x = 0.0f;   // in y dir
+__constant__ float gravit_y = -0.00981f;   // in y dir
+__constant__ float gravit_z = 0.0f;   // in y dir
+
 
 __device__ void collision_response_projection(BRTreeNode*  leaf_nodes, BRTreeNode*  internal_nodes, Primitive* primitives,
 	glm::vec3& force, glm::vec3& pos, glm::vec3& pos_old,
@@ -117,6 +121,15 @@ __global__ void get_face_normal(glm::vec4* g_pos_in, unsigned int* cloth_index, 
 }
 
 
+__global__ void update_vbo_pos(glm::vec4* pos_vbo, glm::vec4* pos_cur, const unsigned int NUM_VERTICES)
+{
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= NUM_VERTICES)
+		return;
+
+	pos_vbo[index] = pos_cur[index];
+}
+
 __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos_old_in, glm::vec4* g_pos_out, glm::vec4* g_pos_old_out, glm::vec4* const_pos,
 						s_spring* neigh1, s_spring* neigh2,
 					  glm::vec3* p_normal, unsigned int* vertex_adjface, glm::vec3* face_normal,
@@ -135,10 +148,8 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 	glm::vec3 pos = glm::vec3(posData.x, posData.y, posData.z);
 	glm::vec3 pos_old = glm::vec3(posOldData.x, posOldData.y, posOldData.z);
 	glm::vec3 vel = (pos - pos_old) / dt;
-
-
-	const glm::vec3 gravity = glm::vec3(0.0f, -0.00981f, 0.0f); //set gravity
 	
+	glm::vec3 gravity(gravit_x, gravit_y, gravit_z);
 	glm::vec3 force = gravity*mass + vel*damp;
 	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh1, NUM_PER_VERTEX_SPRING_STRUCT, pos, vel,spring_structure); //计算一级邻域弹簧力
 	force += get_spring_force(index, g_pos_in, g_pos_old_in, const_pos, neigh2, NUM_PER_VERTEX_SPRING_BEND, pos, vel,spring_bend); //计算二级邻域弹簧力
@@ -152,23 +163,30 @@ __global__ void verlet(glm::vec4* pos_vbo, glm::vec4* g_pos_in, glm::vec4* g_pos
 	pos_old = tmp;
 	collision_response_projection(leaf_nodes, internal_nodes, primitives, force, pos, pos_old, index, collision_force);
 
+	g_pos_out[index] = glm::vec4(pos.x, pos.y, pos.z, posData.w);
+	g_pos_old_out[index] = glm::vec4(pos_old.x, pos_old.y, pos_old.z, posOldData.w);
+
+}
+
+__global__ void update_vbo_normal(glm::vec3* normals, unsigned int* vertex_adjface, glm::vec3* face_normal, const unsigned int NUM_VERTICES)
+{
+
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= NUM_VERTICES)
+		return;
+
 	//compute point normal
+	auto a = vertex_adjface[40960];
+	int b = a;
 	glm::vec3 normal(0.0);
 	int first_face_index = index * NUM_PER_VERTEX_ADJ_FACES;
-	for (int i = first_face_index, time = 0; vertex_adjface[i] != SENTINEL && time<NUM_PER_VERTEX_ADJ_FACES; i++, time++)
+	for (int i = first_face_index, time = 0; vertex_adjface[i] != SENTINEL && time < NUM_PER_VERTEX_ADJ_FACES; i++, time++)
 	{
 		int findex = vertex_adjface[i];
-		glm::vec3 fnormal = face_normal[findex]; 
+		glm::vec3 fnormal = face_normal[findex];
 		normal += fnormal;
 	}
 	normal = glm::normalize(normal);
 
-
-	//set new vertex and new normal
-	pos_vbo[index] = glm::vec4(pos.x, pos.y, pos.z, posData.w);
-	p_normal[index] = glm::vec3(normal.x, normal.y, normal.z);
-
-	g_pos_out[index] = glm::vec4(pos.x, pos.y, pos.z, posData.w);
-	g_pos_old_out[index] = glm::vec4(pos_old.x, pos_old.y, pos_old.z, posOldData.w);
-
+	normals[index] = normal;
 }
