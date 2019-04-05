@@ -1,9 +1,12 @@
 #pragma once
+#include <vector> 
+
 #include "bbox.h"
 #include "primitive.h"
 #include "cudaBRT.h"
 #include "../ObjLoader.h"
-#include <vector> 
+#include "../Mesh.h"
+
 
 using MortonCode = unsigned int;
 
@@ -26,7 +29,7 @@ public:
 	* \param primitives primitives to build from
 	* \param max_leaf_size maximum number of primitives to be stored in leaves
 	*/
-	BVHAccel(const std::vector<Primitive>& primitives, size_t max_leaf_size = 4);
+	BVHAccel(Mesh& body, size_t max_leaf_size = 4);
 
 	/**
 	* Destructor.
@@ -61,14 +64,14 @@ private:
 	BBox computet_root_bbox(Primitive* d_tem_primitives);    // get root AABB size
 	void init();
 	void build();
-
+	void init_primitives(Mesh& body);
 
 	BRTreeNode* get_leaf_nodes();
 	BRTreeNode* get_internal_nodes();
 
 private:
 
-	// 添加一个辅助类，最终得到去重的morton code + primitive + bbox  ???
+	// 辅助计算
 	vector<BBox> _bboxes;
 	vector<BBox> _sorted_bboxes;
 
@@ -81,15 +84,18 @@ private:
 	BBox* d_bboxes;
 	MortonCode* d_sorted_morton_code;
 
+	vector<glm::vec3> obj_vertices;  
+	glm::vec3* d_obj_vertices;
+
+	int numInternalNode;
+	int numLeafNode;
+
 #ifdef _DEBUG
 	BRTreeNode* h_leaf_nodes;
 	BRTreeNode* h_internal_nodes;
 #endif
 
 public:
-
-	int numInternalNode;
-	int numLeafNode;
 
 	// external interface
 	Primitive* d_primitives;

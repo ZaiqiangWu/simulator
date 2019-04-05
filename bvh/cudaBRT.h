@@ -1,17 +1,9 @@
 #pragma once
 #include<cuda_runtime.h>
 #include "bbox.h"
+#include "../common.h"
 
 #define DEFAULT_THREAD_PER_BLOCK 1024
-
-/*check error code of cudaMalloc and print out if needed*/
-#define safe_cuda(CODE)\
- {\
-  cudaError_t err = CODE;\
-  if(err != cudaSuccess) {\
-    std::cout<<"CUDA error:"<<cudaGetErrorString(err)<<std::endl;\
- }\
-}
 
 /**
 * alloc a memory on gpu and copy data from cpu to gpu.

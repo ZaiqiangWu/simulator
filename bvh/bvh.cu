@@ -9,6 +9,7 @@
 #include <thrust/execution_policy.h>
 
 #include "../Utilities.h"
+#include "../common.h"
 
 using namespace std;
 extern inline void copyFromCPUtoGPU(void** dst, void* src, int size);
@@ -233,7 +234,32 @@ void BVHAccel::build()
 		d_leaf_nodes, d_internal_nodes);
 }
 
-BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_leaf_size):
+void BVHAccel::init_primitives(Mesh& body)
+{
+	//prepare primitives
+	obj_vertices.resize(body.vertices.size());
+	for (int i = 0; i < body.vertices.size(); i++)
+	{
+		obj_vertices[i] = glm::vec3(body.vertices[i]);
+	}
+
+	safe_cuda(cudaMalloc((void**)&d_obj_vertices, sizeof(glm::vec3)*obj_vertices.size()));
+	safe_cuda(cudaMemcpy(d_obj_vertices, &obj_vertices[0], sizeof(glm::vec3)*obj_vertices.size(), cudaMemcpyHostToDevice));
+
+	//create primitives
+	glm::vec3* h_obj_vertices = &obj_vertices[0];
+	_primitives.resize(body.vertex_indices.size() / 3);
+
+	for (int i = 0; i < _primitives.size(); i++)
+	{
+		Primitive tem_pri(h_obj_vertices, d_obj_vertices, body.vertex_indices[i * 3 + 0],
+			body.vertex_indices[i * 3 + 1],
+			body.vertex_indices[i * 3 + 2]);
+		_primitives[i] = tem_pri;
+	}
+}
+
+BVHAccel::BVHAccel(Mesh& body, size_t max_leaf_size):
 
 	d_bboxes(nullptr),
 	d_primitives(nullptr),
@@ -246,7 +272,7 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_lea
 	d_internal_nodes(nullptr)
 
 {
-	this->_primitives = input_primitives;
+	init_primitives(body);
 
 	// edge case
 	if (_primitives.empty()) {
@@ -272,7 +298,10 @@ BVHAccel::BVHAccel(const std::vector<Primitive> &input_primitives,size_t max_lea
 	build();
 }
 
-BVHAccel::~BVHAccel() {  }
+BVHAccel::~BVHAccel()
+{
+	//cudaFree(d_obj_vertices);
+}
 
 #ifdef _DEBUG
 BRTreeNode* BVHAccel::get_leaf_nodes()
