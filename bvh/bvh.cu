@@ -154,14 +154,14 @@ void save(vector<Primitive>& primitives, string file_name)
 void BVHAccel::compute_bbox_and_morton()
 {
 	Primitive* d_tem_primitives;
-	MortonCode* d_morton_codes;
-	BBox* d_bboxes;
+	MortonCode* d_tem_morton_codes;
+	BBox* d_tem_bboxes;
 	_morton_codes.resize(_primitives.size());
 	_bboxes.resize(_primitives.size());
 
 	copyFromCPUtoGPU((void**)&d_tem_primitives, &_primitives[0], sizeof(Primitive)*_primitives.size());
-	copyFromCPUtoGPU((void**)&d_morton_codes, &_morton_codes[0], sizeof(MortonCode)*_morton_codes.size());
-	copyFromCPUtoGPU((void**)&d_bboxes, &_bboxes[0], sizeof(BBox)*_bboxes.size());
+	copyFromCPUtoGPU((void**)&d_tem_morton_codes, &_morton_codes[0], sizeof(MortonCode)*_morton_codes.size());
+	copyFromCPUtoGPU((void**)&d_tem_bboxes, &_bboxes[0], sizeof(BBox)*_bboxes.size());
 
 	BBox bb = computet_root_bbox(d_tem_primitives);
 
@@ -171,14 +171,14 @@ void BVHAccel::compute_bbox_and_morton()
 	numThreads = min(blockSize, n);
 	numBlocks = (n % numThreads != 0) ? (n / numThreads + 1) : (n / numThreads);
 
-	compute_morton_bbox << <numBlocks, numThreads >> > (n, d_tem_primitives, bb, d_morton_codes, d_bboxes);
+	compute_morton_bbox << <numBlocks, numThreads >> > (n, d_tem_primitives, bb, d_tem_morton_codes, d_tem_bboxes);
 
-	cudaMemcpy(&_morton_codes[0], d_morton_codes, sizeof(MortonCode)*_morton_codes.size(), cudaMemcpyDeviceToHost);
-	cudaMemcpy(&_bboxes[0], d_bboxes, sizeof(BBox)*_bboxes.size(), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&_morton_codes[0], d_tem_morton_codes, sizeof(MortonCode)*_morton_codes.size(), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&_bboxes[0], d_tem_bboxes, sizeof(BBox)*_bboxes.size(), cudaMemcpyDeviceToHost);
 
 	cudaFree(d_tem_primitives);
-	cudaFree(d_morton_codes);
-	cudaFree(d_bboxes);
+	cudaFree(d_tem_morton_codes);
+	cudaFree(d_tem_bboxes);
 }
 
 __global__ void init_nodes(BRTreeNode* _nodes,const unsigned int num)
@@ -298,7 +298,18 @@ BVHAccel::BVHAccel(Mesh& body, size_t max_leaf_size):
 
 BVHAccel::~BVHAccel()
 {
-	//cudaFree(d_obj_vertices);
+	cudaFree(d_bboxes);
+	cudaFree(d_sorted_morton_code);
+	cudaFree(d_obj_vertices);
+
+	// Free d_bvh here cause it has pointer points to gpu memory
+	// and we need to pass the value several times and make sure the 
+	// resource not freed, so we can't free it in its own destructor. 
+	// \BVHAccel controls the lifetieme of \d_bvh, if the destructor 
+	// of \BVHAccel called, which means we can free all the resources in 
+	// gpu and cpu(Obviously, this violates the "new" and "free" pair priciple)
+
+	d_bvh->free_memory();
 }
 
 #ifdef _DEBUG

@@ -37,16 +37,13 @@ private:
 	s_spring* d_adj_structure_spring;  // adjacent structure springs for each vertex 
 	s_spring* d_adj_bend_spring;       // adjacent bend springs for each vertex 
 
-	//for bvh tree
-	BRTreeNode*  d_leaf_nodes;
-	BRTreeNode*  d_internal_nodes;
-	Primitive* d_primitives;
-
 	// pre-malloc for vertices computation
 	int readID, writeID;
 	glm::vec3* x_original;      // keep it to compute spring original length
 	glm::vec3* x_cur[2];
 	glm::vec3* x_last[2];
+
+	// point to x_cur or x_last, name a straightforward name to make code more clear
 	glm::vec3 * x_cur_in, *x_cur_out;
 	glm::vec3 *x_last_in, *x_last_out;
 
@@ -54,7 +51,11 @@ private:
 	glm::vec3* d_collision_force;           // store the normal of the face if collided, or set 0.0 if no collision
 	unsigned int* d_adjface_to_vertex;       //To compute each point's normal, we need the adjacent face indices of each point  
 
+	// used in update_vbo, just to avoid calling malloc once cuda_update_vbo called
+	glm::vec3* d_face_normals;        // face(triangle) normal	
 public:
+
+	//for bvh tree
 	BVHAccel* cuda_bvh;
 };
 

@@ -228,11 +228,14 @@ D_BVH::D_BVH(Primitive* _d_primitives,
 
 D_BVH::~D_BVH()
 {
-	//cudaFree(d_primitives);
-	//cudaFree(d_leaf_nodes);
-	//cudaFree(d_internal_nodes);
+	
 }
-
+void D_BVH::free_memory()
+{
+	cudaFree(d_primitives);
+	cudaFree(d_leaf_nodes);
+	cudaFree(d_internal_nodes);
+}
  bool D_BVH::intersect(const glm::vec3 point, int& idx)
 {
 	// Allocate traversal stack from thread-local memory,

@@ -35,6 +35,12 @@ Simulator::~Simulator()
 	cudaFree(x_last[1]);
 	cudaFree(d_collision_force);
 	cudaFree(d_adjface_to_vertex);
+	cudaFree(d_face_normals);
+
+	cudaFree(d_adj_structure_spring);
+	cudaFree(d_adj_bend_spring);
+
+	delete cuda_bvh;
 }
 
 Simulator::Simulator(Mesh& sim_cloth, Mesh& body) :readID(0), writeID(1)
@@ -85,6 +91,8 @@ void Simulator::init_cloth(Mesh& sim_cloth)
 	const unsigned int vertex_adjface_bytes = sizeof(unsigned int) * vertex_adjface.size();  //每个点邻接的面的索引
 	safe_cuda(cudaMalloc((void**)&d_adjface_to_vertex, vertex_adjface_bytes));
 	safe_cuda(cudaMemcpy(d_adjface_to_vertex, &vertex_adjface[0], vertex_adjface_bytes, cudaMemcpyHostToDevice));
+	safe_cuda(cudaMalloc((void**)&d_face_normals, sizeof(glm::vec3) * sim_cloth.faces.size()));    //face normal
+	
 
 	safe_cuda(cudaGraphicsGLRegisterBuffer(&d_vbo_index_resource, sim_cloth.vbo.index_buffer, cudaGraphicsMapFlagsWriteDiscard));   	//register vbo
 }
@@ -181,9 +189,7 @@ void Simulator::cuda_update_vbo(Mesh* sim_cloth)
 	glm::vec4* d_vbo_vertex;           //point to vertex address in the OPENGL buffer
 	glm::vec3* d_vbo_normal;           //point to normal address in the OPENGL buffer
 	unsigned int* d_adjvertex_to_face;    // the order like this: f0(v0,v1,v2) -> f1(v0,v1,v2) -> ... ->fn(v0,v1,v2)
-	glm::vec3* d_face_normals;        // face(triangle) normal	
-
-	safe_cuda(cudaMalloc((void**)&d_face_normals, sizeof(glm::vec3) * sim_cloth->faces.size()));    //face normal
+	
 	safe_cuda(cudaGraphicsMapResources(1, &d_vbo_array_resource));
 	safe_cuda(cudaGraphicsMapResources(1, &d_vbo_index_resource));
 	safe_cuda(cudaGraphicsResourceGetMappedPointer((void **)&d_vbo_vertex, &num_bytes, d_vbo_array_resource));
