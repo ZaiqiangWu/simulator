@@ -6,6 +6,7 @@ set(CUDA_PROPAGATE_HOST_FLAGS ON)
 set(CUDA_SEPARABLE_COMPILATION ON)
 find_package(CUDA REQUIRED)
 list(APPEND CUDA_NVCC_FLAGS "-std=c++11" "-rdc=true")
+list(APPEND CUDA_NVCC_FLAGS_DEBUG "-G")
 
 include_directories("D:/ThirdLib/Include")
 link_directories("D:/ThirdLib/Lib" )
