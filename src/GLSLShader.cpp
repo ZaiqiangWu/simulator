@@ -102,9 +102,9 @@ unsigned  int GLSLShader::GetProgram() const {
 	return _program;
 }
 #include <fstream>
+#include <direct.h>
 void GLSLShader::LoadFromFile(GLenum whichShader, const string& filename){
-	ifstream fp;
-	fp.open(filename.c_str(), ios_base::in);
+	ifstream fp(filename);
 	if(fp) {		 
 		/*string line, buffer;
 		while(getline(fp, line)) {

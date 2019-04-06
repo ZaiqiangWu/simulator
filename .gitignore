@@ -10,6 +10,9 @@
 *.filters
 *.aps
 
+# Build file
+/build
+
 # Precompiled Headers
 *.gch
 *.pch

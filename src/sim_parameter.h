@@ -7,3 +7,4 @@ const unsigned int NUM_PER_VERTEX_SPRING_BEND = 20;    //¶þ¼¶ÁÚÓòµÄ×î´óÊýÄ¿£¬ÈôÐ
 const unsigned int SENTINEL = UINT_MAX;     //Ã¿¸öµã×î´ó°üº¬NUM_PER_VERTEX_ADJ_FACES¸öÁÚ½üÃæ£¬²»×ãÕßÒÔSENTINEL×÷Îª½áÊø±êÖ¾
 
 
+
